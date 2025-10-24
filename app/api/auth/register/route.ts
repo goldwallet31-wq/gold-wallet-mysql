@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
       .from('users')
       .insert([
         {
+          id: createdUser.user.id,
           email: email,
           password: hashedPassword,
           full_name: full_name || email,
