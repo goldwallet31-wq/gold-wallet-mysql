@@ -22,57 +22,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get connection from pool
-    const connection = await pool.getConnection();
+    // Check if user already exists
+    const existingUsers = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
 
-    try {
-      // Check if user already exists
-      const [existingUsers] = await connection.execute(
-        'SELECT id FROM users WHERE email = ?',
-        [email]
-      );
-
-      if ((existingUsers as any[]).length > 0) {
-        return NextResponse.json(
-          { error: 'هذا البريد الإلكتروني مسجل بالفعل' },
-          { status: 409 }
-        );
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Insert new user
-      const [result] = await connection.execute(
-        'INSERT INTO users (email, password, full_name) VALUES (?, ?, ?)',
-        [email, hashedPassword, full_name || email]
-      );
-
-      const insertResult = result as any;
-      const userId = insertResult.insertId;
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: userId, email },
-        process.env.JWT_SECRET || 'secret',
-        { expiresIn: '7d' }
-      );
-
+    if (existingUsers.rows.length > 0) {
       return NextResponse.json(
-        {
-          success: true,
-          token,
-          user: {
-            id: userId,
-            email,
-            full_name: full_name || email,
-          },
-        },
-        { status: 201 }
+        { error: 'هذا البريد الإلكتروني مسجل بالفعل' },
+        { status: 409 }
       );
-    } finally {
-      connection.release();
     }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert new user
+    const result = await pool.query(
+      'INSERT INTO users (email, password, full_name) VALUES ($1, $2, $3) RETURNING id',
+      [email, hashedPassword, full_name || email]
+    );
+
+    const userId = result.rows[0].id;
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: userId, email },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '7d' }
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        token,
+        user: {
+          id: userId,
+          email,
+          full_name: full_name || email,
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Register error:', error);
     return NextResponse.json(

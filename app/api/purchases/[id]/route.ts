@@ -46,51 +46,45 @@ export async function PUT(
       notes,
     } = await request.json();
 
-    const connection = await pool.getConnection();
+    // Check if purchase belongs to user
+    const checkResult = await pool.query(
+      'SELECT id FROM purchases WHERE id = $1 AND user_id = $2',
+      [purchaseId, decoded.id]
+    );
 
-    try {
-      // Check if purchase belongs to user
-      const [purchases] = await connection.execute(
-        'SELECT id FROM purchases WHERE id = ? AND user_id = ?',
-        [purchaseId, decoded.id]
-      );
-
-      if ((purchases as any[]).length === 0) {
-        return NextResponse.json(
-          { error: 'المشتراة غير موجودة' },
-          { status: 404 }
-        );
-      }
-
-      // Update purchase
-      await connection.execute(
-        `UPDATE purchases SET 
-         purchase_date = ?, weight = ?, price_per_gram = ?, total_price = ?,
-         manufacturing_fee = ?, other_expenses = ?, notes = ?
-         WHERE id = ? AND user_id = ?`,
-        [
-          purchase_date,
-          weight,
-          price_per_gram,
-          total_price,
-          manufacturing_fee || 0,
-          other_expenses || 0,
-          notes || '',
-          purchaseId,
-          decoded.id,
-        ]
-      );
-
+    if (checkResult.rows.length === 0) {
       return NextResponse.json(
-        {
-          success: true,
-          message: 'تم تحديث المشتراة بنجاح',
-        },
-        { status: 200 }
+        { error: 'المشتراة غير موجودة' },
+        { status: 404 }
       );
-    } finally {
-      connection.release();
     }
+
+    // Update purchase
+    await pool.query(
+      `UPDATE purchases SET
+       purchase_date = $1, weight = $2, price_per_gram = $3, total_price = $4,
+       manufacturing_fee = $5, other_expenses = $6, notes = $7
+       WHERE id = $8 AND user_id = $9`,
+      [
+        purchase_date,
+        weight,
+        price_per_gram,
+        total_price,
+        manufacturing_fee || 0,
+        other_expenses || 0,
+        notes || '',
+        purchaseId,
+        decoded.id,
+      ]
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'تم تحديث المشتراة بنجاح',
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Update purchase error:', error);
     return NextResponse.json(
@@ -117,38 +111,32 @@ export async function DELETE(
 
     const purchaseId = params.id;
 
-    const connection = await pool.getConnection();
+    // Check if purchase belongs to user
+    const checkResult = await pool.query(
+      'SELECT id FROM purchases WHERE id = $1 AND user_id = $2',
+      [purchaseId, decoded.id]
+    );
 
-    try {
-      // Check if purchase belongs to user
-      const [purchases] = await connection.execute(
-        'SELECT id FROM purchases WHERE id = ? AND user_id = ?',
-        [purchaseId, decoded.id]
-      );
-
-      if ((purchases as any[]).length === 0) {
-        return NextResponse.json(
-          { error: 'المشتراة غير موجودة' },
-          { status: 404 }
-        );
-      }
-
-      // Delete purchase
-      await connection.execute(
-        'DELETE FROM purchases WHERE id = ? AND user_id = ?',
-        [purchaseId, decoded.id]
-      );
-
+    if (checkResult.rows.length === 0) {
       return NextResponse.json(
-        {
-          success: true,
-          message: 'تم حذف المشتراة بنجاح',
-        },
-        { status: 200 }
+        { error: 'المشتراة غير موجودة' },
+        { status: 404 }
       );
-    } finally {
-      connection.release();
     }
+
+    // Delete purchase
+    await pool.query(
+      'DELETE FROM purchases WHERE id = $1 AND user_id = $2',
+      [purchaseId, decoded.id]
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'تم حذف المشتراة بنجاح',
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Delete purchase error:', error);
     return NextResponse.json(

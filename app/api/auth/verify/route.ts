@@ -23,39 +23,31 @@ export async function GET(request: NextRequest) {
     ) as any;
 
     // Get user from database
-    const connection = await pool.getConnection();
+    const result = await pool.query(
+      'SELECT id, email, full_name FROM users WHERE id = $1',
+      [decoded.id]
+    );
 
-    try {
-      const [rows] = await connection.execute(
-        'SELECT id, email, full_name FROM users WHERE id = ?',
-        [decoded.id]
-      );
-
-      const users = rows as any[];
-
-      if (users.length === 0) {
-        return NextResponse.json(
-          { error: 'المستخدم غير موجود' },
-          { status: 404 }
-        );
-      }
-
-      const user = users[0];
-
+    if (result.rows.length === 0) {
       return NextResponse.json(
-        {
-          success: true,
-          user: {
-            id: user.id,
-            email: user.email,
-            full_name: user.full_name,
-          },
-        },
-        { status: 200 }
+        { error: 'المستخدم غير موجود' },
+        { status: 404 }
       );
-    } finally {
-      connection.release();
     }
+
+    const user = result.rows[0];
+
+    return NextResponse.json(
+      {
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          full_name: user.full_name,
+        },
+      },
+      { status: 200 }
+    );
   } catch (error: any) {
     console.error('Verify error:', error);
 
