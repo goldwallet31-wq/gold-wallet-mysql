@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import supabase from '@/lib/db';
-import jwt from 'jsonwebtoken';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +14,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // استخدام Supabase للمصادقة
+    // إنشاء عميل Supabase مع الكوكيز
+    const supabase = createRouteHandlerClient({ cookies });
+
+    // تسجيل الدخول مع Supabase
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -28,48 +31,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!data || !data.user) {
+    if (!data?.user || !data?.session) {
       return NextResponse.json(
         { error: 'حدث خطأ أثناء تسجيل الدخول' },
         { status: 500 }
       );
     }
 
-    // الحصول على بيانات المستخدم من جدول المستخدمين (لازم موجود لإصدار JWT داخلي)
+    // الحصول على البيانات الإضافية من جدول users
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('id, email, full_name')
-      .eq('email', email)
+      .select('full_name')
+      .eq('id', data.user.id)
       .single();
 
-    if (userError || !userData) {
-      console.error('Error fetching user data:', userError);
-      return NextResponse.json(
-        { error: 'تم تسجيل الدخول في Supabase لكن لم يتم العثور على المستخدم في جدول users' },
-        { status: 500 }
-      );
-    }
-
-    // إصدار رمز JWT داخلي متوافق مع /api/auth/verify
-    const appToken = jwt.sign(
-      { id: userData.id, email: userData.email },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
-    );
-
-    // Return success response
-    return NextResponse.json(
-      {
-        success: true,
-        token: appToken,
-        user: {
-          id: userData.id,
-          email: userData.email,
-          full_name: userData.full_name || data.user.user_metadata?.full_name || email,
-        },
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      success: true,
+      session: data.session,
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        full_name: userData?.full_name || data.user.email
+      }
+    }, { status: 200 });
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

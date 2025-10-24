@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -42,27 +43,25 @@ export default function LoginPage() {
         return
       }
 
-      // إرسال طلب تسجيل الدخول إلى الخادم
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      })
+      // تسجيل الدخول مباشرة باستخدام Supabase
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || "حدث خطأ أثناء تسجيل الدخول")
-        return
+      if (loginError) {
+        setError(loginError.message || "حدث خطأ أثناء تسجيل الدخول");
+        return;
       }
 
-      // حفظ الرمز في localStorage
-      localStorage.setItem("authToken", data.token)
+      if (!data?.user || !data?.session) {
+        setError("حدث خطأ أثناء تسجيل الدخول");
+        return;
+      }
 
       // إعادة التوجيه إلى الصفحة الرئيسية
-      router.push("/")
+      router.refresh(); // تحديث الصفحة للتأكد من تحديث حالة المصادقة
+      router.push("/");
     } catch (err) {
       setError("حدث خطأ أثناء تسجيل الدخول")
       console.error(err)
