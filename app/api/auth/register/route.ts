@@ -26,9 +26,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (password.length < 4) {
+    if (password.length < 6) {
       return NextResponse.json(
-        { error: 'كلمة المرور يجب أن تكون 4 أحرف على الأقل' },
+        { error: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل لتتوافق مع إعدادات Supabase' },
         { status: 400 }
       )
     }
@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
         )
       }
       return NextResponse.json(
-        { error: 'حدث خطأ أثناء إنشاء المستخدم' },
-        { status: 500 }
+        { error: `فشل إنشاء المستخدم: ${createError.message}` },
+        { status: (createError as any).status || 400 }
       )
     }
 
