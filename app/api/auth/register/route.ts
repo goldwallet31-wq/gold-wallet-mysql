@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import supabase from '@/lib/db'
 import bcrypt from 'bcryptjs'
 import supabaseServer from '@/lib/supabase-server'
+import jwt from 'jsonwebtoken'
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,9 +12,10 @@ export async function POST(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    const jwtSecret = process.env.JWT_SECRET
+    if (!supabaseUrl || !anonKey || !serviceRoleKey || !jwtSecret) {
       return NextResponse.json(
-        { error: 'متغيرات Supabase غير مضبوطة (URL/ANON_KEY/SERVICE_ROLE_KEY). حدّث إعدادات البيئة أولاً.' },
+        { error: 'متغيرات Supabase/JWT غير مضبوطة (URL/ANON_KEY/SERVICE_ROLE_KEY/JWT_SECRET). حدّث إعدادات البيئة أولاً.' },
         { status: 500 }
       )
     }
@@ -81,21 +83,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // تسجيل الدخول فورًا للصول على جلسة/توكن
-    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+    // تسجيل الدخول فورًا (اختياري) ثم إصدار توكن داخلي متوافق مع التحقق
+    const { error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
     if (loginError) {
       console.error('Supabase login after create error:', loginError)
-      return NextResponse.json(
-        { error: 'تم إنشاء المستخدم لكن فشل تسجيل الدخول. حاول من صفحة تسجيل الدخول.' },
-        { status: 500 }
-      )
+      // لا نمنع الإكمال: نصدر JWT داخلي بغض النظر
     }
 
-    const token = loginData.session?.access_token
+    // إصدار JWT داخلي يحتوي على id و email
+    const token = jwt.sign(
+      { id: insertedUser?.id, email },
+      jwtSecret,
+      { expiresIn: '7d' }
+    )
 
     return NextResponse.json(
       {
