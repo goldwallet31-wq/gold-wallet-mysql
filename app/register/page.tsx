@@ -6,32 +6,43 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, LogIn } from "lucide-react"
+import { Eye, EyeOff, UserPlus } from "lucide-react"
 import Link from "next/link"
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter()
+  const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setSuccess("")
     setLoading(true)
 
     try {
       // التحقق من صحة البيانات
-      if (!email || !password) {
+      if (!fullName || !email || !password || !confirmPassword) {
         setError("يرجى ملء جميع الحقول")
         setLoading(false)
         return
       }
 
-      if (email.length < 3) {
-        setError("البريد الإلكتروني أو اسم المستخدم قصير جداً")
+      if (fullName.length < 3) {
+        setError("الاسم قصير جداً (3 أحرف على الأقل)")
+        setLoading(false)
+        return
+      }
+
+      if (!email.includes("@")) {
+        setError("البريد الإلكتروني غير صحيح")
         setLoading(false)
         return
       }
@@ -42,29 +53,39 @@ export default function LoginPage() {
         return
       }
 
-      // إرسال طلب تسجيل الدخول إلى الخادم
-      const response = await fetch("/api/auth/login", {
+      if (password !== confirmPassword) {
+        setError("كلمات المرور غير متطابقة")
+        setLoading(false)
+        return
+      }
+
+      // إرسال طلب التسجيل إلى الخادم
+      const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ full_name: fullName, email, password }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || "حدث خطأ أثناء تسجيل الدخول")
+        setError(data.error || "حدث خطأ أثناء التسجيل")
         return
       }
+
+      setSuccess("تم التسجيل بنجاح! جاري إعادة التوجيه...")
 
       // حفظ الرمز في localStorage
       localStorage.setItem("authToken", data.token)
 
-      // إعادة التوجيه إلى الصفحة الرئيسية
-      router.push("/")
+      // إعادة التوجيه إلى الصفحة الرئيسية بعد ثانية
+      setTimeout(() => {
+        router.push("/")
+      }, 1000)
     } catch (err) {
-      setError("حدث خطأ أثناء تسجيل الدخول")
+      setError("حدث خطأ أثناء التسجيل")
       console.error(err)
     } finally {
       setLoading(false)
@@ -83,17 +104,17 @@ export default function LoginPage() {
           <p className="text-muted-foreground mt-2">Gold Wallet</p>
         </div>
 
-        {/* Login Card */}
+        {/* Register Card */}
         <Card className="border-border/50 shadow-2xl">
           <CardHeader className="space-y-2">
-            <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
+            <CardTitle className="text-2xl">إنشاء حساب جديد</CardTitle>
             <CardDescription>
-              أدخل بيانات حسابك للوصول إلى محفظتك
+              أنشئ حسابك للبدء في إدارة محفظتك
             </CardDescription>
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleRegister} className="space-y-4">
               {/* Error Message */}
               {error && (
                 <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
@@ -101,14 +122,37 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Email/Username Field */}
+              {/* Success Message */}
+              {success && (
+                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-600 text-sm">
+                  {success}
+                </div>
+              )}
+
+              {/* Full Name Field */}
+              <div className="space-y-2">
+                <Label htmlFor="fullName" className="text-foreground">
+                  الاسم الكامل
+                </Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="أدخل اسمك الكامل"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  disabled={loading}
+                  className="border-border/50 focus:border-primary"
+                />
+              </div>
+
+              {/* Email Field */}
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-foreground">
-                  البريد الإلكتروني أو اسم المستخدم
+                  البريد الإلكتروني
                 </Label>
                 <Input
                   id="email"
-                  type="text"
+                  type="email"
                   placeholder="أدخل بريدك الإلكتروني"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -147,39 +191,56 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Login Button */}
+              {/* Confirm Password Field */}
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-foreground">
+                  تأكيد كلمة المرور
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="أعد إدخال كلمة المرور"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={loading}
+                    className="border-border/50 focus:border-primary pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={loading}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Register Button */}
               <Button
                 type="submit"
                 disabled={loading}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 h-10 gap-2"
               >
-                <LogIn className="w-4 h-4" />
-                {loading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
+                <UserPlus className="w-4 h-4" />
+                {loading ? "جاري التسجيل..." : "إنشاء حساب"}
               </Button>
 
-              {/* Register Link */}
+              {/* Login Link */}
               <div className="text-center text-sm">
                 <p className="text-muted-foreground">
-                  ليس لديك حساب؟{" "}
+                  هل لديك حساب بالفعل؟{" "}
                   <Link
-                    href="/register"
+                    href="/login"
                     className="text-primary hover:underline font-semibold"
                   >
-                    إنشاء حساب جديد
+                    تسجيل الدخول
                   </Link>
-                </p>
-              </div>
-
-              {/* Demo Credentials */}
-              <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
-                <p className="text-xs text-muted-foreground mb-2">
-                  <strong>بيانات تجريبية:</strong>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  البريد: <code className="bg-background px-1 rounded">demo@gold.com</code>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  كلمة المرور: <code className="bg-background px-1 rounded">1234</code>
                 </p>
               </div>
             </form>
@@ -189,7 +250,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="text-center mt-6 text-sm text-muted-foreground">
           <p>
-            هذا التطبيق يستخدم التخزين المحلي (localStorage) لحفظ البيانات
+            هذا التطبيق يستخدم قاعدة بيانات MySQL لحفظ البيانات بشكل آمن
           </p>
         </div>
       </div>
