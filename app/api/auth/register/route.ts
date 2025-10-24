@@ -38,6 +38,8 @@ export async function POST(request: NextRequest) {
     // تشفير كلمة المرور لتخزينها في جدول users المحلي (متوافق مع المخطط الحالي)
     const hashedPassword = bcrypt.hashSync(password, 10)
 
+    console.log('Starting user creation process...');
+    
     // إنشاء المستخدم عبر مفتاح الخدمة مع تأكيد البريد مباشرةً لتفادي فشل تسجيل الدخول
     const { data: createdUser, error: createError } = await supabaseServer.auth.admin.createUser({
       email,
@@ -47,6 +49,8 @@ export async function POST(request: NextRequest) {
         full_name: full_name || email,
       },
     })
+
+    console.log('Auth user creation result:', { createdUser, createError });
 
     if (createError) {
       console.error('Supabase admin.createUser error:', createError)
@@ -62,6 +66,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('Attempting to insert user into users table...');
+    
+    // تحقق من أن لدينا user.id
+    if (!createdUser?.user?.id) {
+      console.error('No user ID from auth creation:', createdUser);
+      return NextResponse.json(
+        { error: 'فشل إنشاء المستخدم: لم يتم الحصول على معرف المستخدم' },
+        { status: 500 }
+      );
+    }
+
     // إدراج بيانات المستخدم في جدول users المخصص
     const { data: insertedUser, error: userError } = await supabaseServer
       .from('users')
@@ -69,12 +84,13 @@ export async function POST(request: NextRequest) {
         {
           id: createdUser.user.id,
           email: email,
-          password: hashedPassword,
           full_name: full_name || email,
         }
       ])
       .select('id, email, full_name')
       .single()
+    
+    console.log('User insertion result:', { insertedUser, userError });
 
     if (userError) {
       console.error('Error inserting user data:', userError)
