@@ -35,29 +35,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // الحصول على بيانات المستخدم من جدول المستخدمين
+    // الحصول على بيانات المستخدم من جدول المستخدمين (لازم موجود لإصدار JWT داخلي)
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('id, email, full_name')
       .eq('email', email)
       .single();
 
-    if (userError) {
+    if (userError || !userData) {
       console.error('Error fetching user data:', userError);
+      return NextResponse.json(
+        { error: 'تم تسجيل الدخول في Supabase لكن لم يتم العثور على المستخدم في جدول users' },
+        { status: 500 }
+      );
     }
 
-    // استخدام رمز الجلسة من Supabase
-    const token = data.session?.access_token;
+    // إصدار رمز JWT داخلي متوافق مع /api/auth/verify
+    const appToken = jwt.sign(
+      { id: userData.id, email: userData.email },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '7d' }
+    );
 
     // Return success response
     return NextResponse.json(
       {
         success: true,
-        token,
+        token: appToken,
         user: {
-          id: userData?.id || data.user.id,
-          email: data.user.email,
-          full_name: userData?.full_name || data.user.user_metadata?.full_name || email,
+          id: userData.id,
+          email: userData.email,
+          full_name: userData.full_name || data.user.user_metadata?.full_name || email,
         },
       },
       { status: 200 }
@@ -70,4 +78,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

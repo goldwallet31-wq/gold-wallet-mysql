@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import pool from '@/lib/db';
+import supabase from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,28 +22,27 @@ export async function GET(request: NextRequest) {
       process.env.JWT_SECRET || 'secret'
     ) as any;
 
-    // Get user from database
-    const result = await pool.query(
-      'SELECT id, email, full_name FROM users WHERE id = $1',
-      [decoded.id]
-    );
+    // Get user from Supabase users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, email, full_name')
+      .eq('id', decoded.id)
+      .single();
 
-    if (result.rows.length === 0) {
+    if (userError || !userData) {
       return NextResponse.json(
         { error: 'المستخدم غير موجود' },
         { status: 404 }
       );
     }
 
-    const user = result.rows[0];
-
     return NextResponse.json(
       {
         success: true,
         user: {
-          id: user.id,
-          email: user.email,
-          full_name: user.full_name,
+          id: userData.id,
+          email: userData.email,
+          full_name: userData.full_name,
         },
       },
       { status: 200 }
@@ -71,4 +70,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
