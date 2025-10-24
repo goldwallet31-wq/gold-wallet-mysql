@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 // الصفحات التي لا تحتاج إلى تسجيل دخول
-const publicPages = ["/login", "/register", "/"]
+const publicPages = ["/login", "/register"]
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
