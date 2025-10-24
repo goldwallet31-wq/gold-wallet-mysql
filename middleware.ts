@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from "next/server"
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
 // الصفحات التي لا تحتاج إلى تسجيل دخول
-const publicPages = ["/login"]
+const publicPages = ["/login", "/register", "/"]
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // السماح بالوصول إلى الصفحات العامة
@@ -12,17 +14,32 @@ export function middleware(request: NextRequest) {
   }
 
   // السماح بالوصول إلى API routes
-  if (pathname.startsWith("/api")) {
+  if (pathname.startsWith("/api/")) {
     return NextResponse.next()
   }
 
-  // التحقق من وجود بيانات تسجيل الدخول في الـ cookies أو headers
-  // ملاحظة: في بيئة العميل (Client-side)، سنستخدم localStorage
-  // لكن في الـ middleware (Server-side)، نحتاج إلى استخدام cookies
+  try {
+    // إنشاء عميل Supabase
+    const response = NextResponse.next()
+    const supabase = createMiddlewareClient({ req: request, res: response })
 
-  // للآن، سنسمح بالوصول إلى جميع الصفحات
-  // والتحقق من تسجيل الدخول سيتم في الـ client-side
-  return NextResponse.next()
+    // التحقق من جلسة المستخدم
+    const { data: { session } } = await supabase.auth.getSession()
+
+    // إذا لم يكن المستخدم مسجل الدخول، قم بإعادة توجيهه إلى صفحة تسجيل الدخول
+    if (!session) {
+      const redirectUrl = new URL('/login', request.url)
+      redirectUrl.searchParams.set('redirectTo', pathname)
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    return response
+  } catch (error) {
+    console.error('Auth error:', error)
+    // في حالة حدوث خطأ، قم بإعادة توجيه المستخدم إلى صفحة تسجيل الدخول
+    const redirectUrl = new URL('/login', request.url)
+    return NextResponse.redirect(redirectUrl)
+  }
 }
 
 export const config = {
