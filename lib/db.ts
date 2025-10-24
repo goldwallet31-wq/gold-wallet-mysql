@@ -1,9 +1,11 @@
-import { Pool } from 'pg';
+import { createClient } from '@supabase/supabase-js';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/postgres',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+// إنشاء عميل Supabase باستخدام URL وAPI Key
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://owmnzeicrjkmxenomava.supabase.co';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export default pool;
+// إنشاء عميل Supabase
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+export default supabase;
 

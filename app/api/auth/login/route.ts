@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
-import bcrypt from 'bcryptjs';
+import supabase from '@/lib/db';
 import jwt from 'jsonwebtoken';
 
 export async function POST(request: NextRequest) {
@@ -15,39 +14,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Query user from database
-    const result = await pool.query(
-      'SELECT id, email, password, full_name FROM users WHERE email = $1',
-      [email]
-    );
+    // استخدام Supabase للمصادقة
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    const users = result.rows;
-
-    if (users.length === 0) {
+    if (error) {
+      console.error('Supabase login error:', error);
       return NextResponse.json(
         { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' },
         { status: 401 }
       );
     }
 
-    const user = users[0];
-
-    // Compare passwords
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
+    if (!data || !data.user) {
       return NextResponse.json(
-        { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' },
-        { status: 401 }
+        { error: 'حدث خطأ أثناء تسجيل الدخول' },
+        { status: 500 }
       );
     }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
-    );
+    // الحصول على بيانات المستخدم من جدول المستخدمين
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, email, full_name')
+      .eq('email', email)
+      .single();
+
+    if (userError) {
+      console.error('Error fetching user data:', userError);
+    }
+
+    // استخدام رمز الجلسة من Supabase
+    const token = data.session?.access_token;
 
     // Return success response
     return NextResponse.json(
@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
         success: true,
         token,
         user: {
-          id: user.id,
-          email: user.email,
-          full_name: user.full_name,
+          id: userData?.id || data.user.id,
+          email: data.user.email,
+          full_name: userData?.full_name || data.user.user_metadata?.full_name || email,
         },
       },
       { status: 200 }

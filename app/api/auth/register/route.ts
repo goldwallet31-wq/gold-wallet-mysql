@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import supabase from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,43 +20,66 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists
-    const existingUsers = await pool.query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
+    // استخدام Supabase للتسجيل
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: full_name || email,
+        }
+      }
+    });
 
-    if (existingUsers.rows.length > 0) {
+    if (error) {
+      console.error('Supabase registration error:', error);
+      
+      // التحقق من نوع الخطأ
+      if (error.message.includes('already registered')) {
+        return NextResponse.json(
+          { error: 'هذا البريد الإلكتروني مسجل بالفعل' },
+          { status: 409 }
+        );
+      }
+      
       return NextResponse.json(
-        { error: 'هذا البريد الإلكتروني مسجل بالفعل' },
-        { status: 409 }
+        { error: 'حدث خطأ أثناء التسجيل' },
+        { status: 500 }
       );
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    if (!data || !data.user) {
+      return NextResponse.json(
+        { error: 'حدث خطأ أثناء التسجيل' },
+        { status: 500 }
+      );
+    }
 
-    // Insert new user
-    const result = await pool.query(
-      'INSERT INTO users (email, password, full_name) VALUES ($1, $2, $3) RETURNING id',
-      [email, hashedPassword, full_name || email]
-    );
+    // إضافة المستخدم إلى جدول المستخدمين المخصص (إذا كان مطلوبًا)
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .insert([
+        { 
+          id: data.user.id,
+          email: email,
+          full_name: full_name || email
+        }
+      ])
+      .select();
 
-    const userId = result.rows[0].id;
+    if (userError) {
+      console.error('Error inserting user data:', userError);
+    }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: userId, email },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
-    );
+    // استخدام رمز الجلسة من Supabase
+    const token = data.session?.access_token;
 
     return NextResponse.json(
       {
         success: true,
         token,
         user: {
-          id: userId,
+          id: data.user.id,
           email,
           full_name: full_name || email,
         },
