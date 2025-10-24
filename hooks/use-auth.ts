@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { supabase } from '@/lib/supabase'
 
 export interface User {
-  id: number
+  id: string
   email: string
   full_name: string
 }
@@ -15,53 +16,76 @@ export function useAuth() {
   const [token, setToken] = useState<string | null>(null)
 
   useEffect(() => {
-    // التحقق من حالة تسجيل الدخول عند تحميل الصفحة
+    // التحقق من جلسة Supabase عند تحميل الصفحة
     const checkAuth = async () => {
       try {
-        const storedToken = localStorage.getItem("authToken")
-
-        if (!storedToken) {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error("Error checking auth:", error)
           setIsLoggedIn(false)
           setUser(null)
           setLoading(false)
           return
         }
 
-        // التحقق من الرمز مع الخادم
-        const response = await fetch("/api/auth/verify", {
-          headers: {
-            Authorization: `Bearer ${storedToken}`,
-          },
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          setUser(data.user)
-          setToken(storedToken)
-          setIsLoggedIn(true)
-        } else {
-          // الرمز غير صحيح، حذفه
-          localStorage.removeItem("authToken")
+        if (!session) {
           setIsLoggedIn(false)
           setUser(null)
-          setToken(null)
+          setLoading(false)
+          return
         }
+
+        // الحصول على بيانات المستخدم من جدول المستخدمين
+        const { data: profile } = await supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', session.user.id)
+          .single()
+
+        setUser({
+          id: session.user.id,
+          email: session.user.email!,
+          full_name: profile?.full_name || session.user.email!
+        })
+        setToken(session.access_token)
+        setIsLoggedIn(true)
       } catch (error) {
         console.error("Error checking auth:", error)
         setIsLoggedIn(false)
         setUser(null)
-        setToken(null)
       } finally {
         setLoading(false)
       }
     }
 
+    // الاستماع لتغييرات الجلسة
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setIsLoggedIn(true)
+        setUser({
+          id: session.user.id,
+          email: session.user.email!,
+          full_name: session.user.email! // سيتم تحديثه لاحقاً من الملف الشخصي
+        })
+        setToken(session.access_token)
+      } else {
+        setIsLoggedIn(false)
+        setUser(null)
+        setToken(null)
+      }
+    })
+
     checkAuth()
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
-  const logout = () => {
+  const logout = async () => {
     try {
-      localStorage.removeItem("authToken")
+      await supabase.auth.signOut()
       setUser(null)
       setIsLoggedIn(false)
       setToken(null)
