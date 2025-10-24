@@ -8,7 +8,7 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
   throw new Error('Missing environment variable NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
-export const supabase = createClient(
+const supabaseClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   {
@@ -18,4 +18,4 @@ export const supabase = createClient(
   }
 )
 
-export default supabase
+export { supabaseClient as supabase }
