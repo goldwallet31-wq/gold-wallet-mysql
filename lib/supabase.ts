@@ -14,6 +14,10 @@ const supabaseClient = createClient(
   {
     auth: {
       persistSession: true,
+      storageKey: 'gold-wallet-auth',
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
     },
   }
 )

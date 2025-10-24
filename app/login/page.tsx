@@ -59,9 +59,9 @@ export default function LoginPage() {
         return;
       }
 
-      // إعادة التوجيه إلى الصفحة الرئيسية
-      router.refresh(); // تحديث الصفحة للتأكد من تحديث حالة المصادقة
-      router.push("/");
+      // حفظ الجلسة وإعادة التوجيه إلى الصفحة الرئيسية
+      await new Promise(resolve => setTimeout(resolve, 500)); // انتظار لضمان حفظ الجلسة
+      window.location.href = "/"; // استخدام إعادة التوجيه الكامل
     } catch (err) {
       setError("حدث خطأ أثناء تسجيل الدخول")
       console.error(err)
