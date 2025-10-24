@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import pool from '@/lib/db';
+import supabaseServer from '@/lib/supabase-server';
 
 // Helper function to verify token
 function verifyToken(authHeader: string | null) {
@@ -8,12 +8,15 @@ function verifyToken(authHeader: string | null) {
     return null;
   }
 
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    console.error('JWT_SECRET is not set in environment');
+    return null;
+  }
+
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'secret'
-    ) as any;
+    const decoded = jwt.verify(token, secret) as any;
     return decoded;
   } catch (error) {
     return null;
@@ -47,12 +50,18 @@ export async function PUT(
     } = await request.json();
 
     // Check if purchase belongs to user
-    const checkResult = await pool.query(
-      'SELECT id FROM purchases WHERE id = $1 AND user_id = $2',
-      [purchaseId, decoded.id]
-    );
+    const { data: existing, error: checkError } = await supabaseServer
+      .from('purchases')
+      .select('id')
+      .eq('id', purchaseId)
+      .eq('user_id', decoded.id)
+      .single();
 
-    if (checkResult.rows.length === 0) {
+    if (checkError) {
+      console.error('Check purchase error:', checkError);
+    }
+
+    if (!existing) {
       return NextResponse.json(
         { error: 'المشتراة غير موجودة' },
         { status: 404 }
@@ -60,23 +69,27 @@ export async function PUT(
     }
 
     // Update purchase
-    await pool.query(
-      `UPDATE purchases SET
-       purchase_date = $1, weight = $2, price_per_gram = $3, total_price = $4,
-       manufacturing_fee = $5, other_expenses = $6, notes = $7
-       WHERE id = $8 AND user_id = $9`,
-      [
+    const { error: updateError } = await supabaseServer
+      .from('purchases')
+      .update({
         purchase_date,
         weight,
         price_per_gram,
         total_price,
-        manufacturing_fee || 0,
-        other_expenses || 0,
-        notes || '',
-        purchaseId,
-        decoded.id,
-      ]
-    );
+        manufacturing_fee: manufacturing_fee || 0,
+        other_expenses: other_expenses || 0,
+        notes: notes || '',
+      })
+      .eq('id', purchaseId)
+      .eq('user_id', decoded.id);
+
+    if (updateError) {
+      console.error('Update purchase error:', updateError);
+      return NextResponse.json(
+        { error: 'حدث خطأ أثناء تحديث المشتراة' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       {
@@ -112,12 +125,18 @@ export async function DELETE(
     const purchaseId = params.id;
 
     // Check if purchase belongs to user
-    const checkResult = await pool.query(
-      'SELECT id FROM purchases WHERE id = $1 AND user_id = $2',
-      [purchaseId, decoded.id]
-    );
+    const { data: existing, error: checkError } = await supabaseServer
+      .from('purchases')
+      .select('id')
+      .eq('id', purchaseId)
+      .eq('user_id', decoded.id)
+      .single();
 
-    if (checkResult.rows.length === 0) {
+    if (checkError) {
+      console.error('Check purchase error:', checkError);
+    }
+
+    if (!existing) {
       return NextResponse.json(
         { error: 'المشتراة غير موجودة' },
         { status: 404 }
@@ -125,10 +144,19 @@ export async function DELETE(
     }
 
     // Delete purchase
-    await pool.query(
-      'DELETE FROM purchases WHERE id = $1 AND user_id = $2',
-      [purchaseId, decoded.id]
-    );
+    const { error: deleteError } = await supabaseServer
+      .from('purchases')
+      .delete()
+      .eq('id', purchaseId)
+      .eq('user_id', decoded.id);
+
+    if (deleteError) {
+      console.error('Delete purchase error:', deleteError);
+      return NextResponse.json(
+        { error: 'حدث خطأ أثناء حذف المشتراة' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       {
@@ -145,4 +173,3 @@ export async function DELETE(
     );
   }
 }
-

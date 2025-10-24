@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import pool from '@/lib/db';
+import supabaseServer from '@/lib/supabase-server';
 
 // Helper function to verify token
 function verifyToken(authHeader: string | null) {
@@ -8,12 +8,15 @@ function verifyToken(authHeader: string | null) {
     return null;
   }
 
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    console.error('JWT_SECRET is not set in environment');
+    return null;
+  }
+
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'secret'
-    ) as any;
+    const decoded = jwt.verify(token, secret) as any;
     return decoded;
   } catch (error) {
     return null;
@@ -32,17 +35,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await pool.query(
-      `SELECT id, user_id, purchase_date, weight, price_per_gram,
-              total_price, manufacturing_fee, other_expenses, notes, created_at
-       FROM purchases WHERE user_id = $1 ORDER BY purchase_date DESC`,
-      [decoded.id]
-    );
+    const { data: purchases, error } = await supabaseServer
+      .from('purchases')
+      .select('id, user_id, purchase_date, weight, price_per_gram, total_price, manufacturing_fee, other_expenses, notes, created_at')
+      .eq('user_id', decoded.id)
+      .order('purchase_date', { ascending: false });
+
+    if (error) {
+      console.error('Get purchases error:', error);
+      return NextResponse.json(
+        { error: 'حدث خطأ أثناء جلب المشتريات' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       {
         success: true,
-        purchases: result.rows,
+        purchases: purchases ?? [],
       },
       { status: 200 }
     );
@@ -85,24 +95,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await pool.query(
-      `INSERT INTO purchases
-       (user_id, purchase_date, weight, price_per_gram, total_price,
-        manufacturing_fee, other_expenses, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-      [
-        decoded.id,
-        purchase_date,
-        weight,
-        price_per_gram,
-        total_price,
-        manufacturing_fee || 0,
-        other_expenses || 0,
-        notes || '',
-      ]
-    );
+    const { data: inserted, error } = await supabaseServer
+      .from('purchases')
+      .insert([
+        {
+          user_id: decoded.id,
+          purchase_date,
+          weight,
+          price_per_gram,
+          total_price,
+          manufacturing_fee: manufacturing_fee || 0,
+          other_expenses: other_expenses || 0,
+          notes: notes || '',
+        },
+      ])
+      .select('id')
+      .single();
 
-    const purchaseId = result.rows[0].id;
+    if (error) {
+      console.error('Create purchase error:', error);
+      return NextResponse.json(
+        { error: 'حدث خطأ أثناء إضافة المشتراة' },
+        { status: 500 }
+      );
+    }
+
+    const purchaseId = inserted?.id;
 
     return NextResponse.json(
       {
@@ -129,4 +147,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
