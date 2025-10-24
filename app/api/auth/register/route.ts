@@ -1,66 +1,67 @@
-import { NextRequest, NextResponse } from 'next/server';
-import supabase from '@/lib/db';
-import bcrypt from 'bcryptjs';
+import { NextRequest, NextResponse } from 'next/server'
+import supabase from '@/lib/db'
+import bcrypt from 'bcryptjs'
+import supabaseServer from '@/lib/supabase-server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, full_name } = await request.json();
+    const { email, password, full_name } = await request.json()
+
+    // Fail-fast: تأكد من ضبط متغيرات البيئة الضرورية
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+      return NextResponse.json(
+        { error: 'متغيرات Supabase غير مضبوطة (URL/ANON_KEY/SERVICE_ROLE_KEY). حدّث إعدادات البيئة أولاً.' },
+        { status: 500 }
+      )
+    }
 
     // Validation
     if (!email || !password) {
       return NextResponse.json(
         { error: 'البريد الإلكتروني وكلمة المرور مطلوبة' },
         { status: 400 }
-      );
+      )
     }
 
     if (password.length < 4) {
       return NextResponse.json(
         { error: 'كلمة المرور يجب أن تكون 4 أحرف على الأقل' },
         { status: 400 }
-      );
+      )
     }
 
     // تشفير كلمة المرور لتخزينها في جدول users المحلي (متوافق مع المخطط الحالي)
-    const hashedPassword = bcrypt.hashSync(password, 10);
+    const hashedPassword = bcrypt.hashSync(password, 10)
 
-    // استخدام Supabase للتسجيل
-    const { data, error } = await supabase.auth.signUp({
+    // إنشاء المستخدم عبر مفتاح الخدمة مع تأكيد البريد مباشرةً لتفادي فشل تسجيل الدخول
+    const { data: createdUser, error: createError } = await supabaseServer.auth.admin.createUser({
       email,
       password,
-      options: {
-        data: {
-          full_name: full_name || email,
-        }
-      }
-    });
+      email_confirm: true,
+      user_metadata: {
+        full_name: full_name || email,
+      },
+    })
 
-    if (error) {
-      console.error('Supabase registration error:', error);
-      
-      // التحقق من نوع الخطأ
-      if (error.message.includes('already registered')) {
+    if (createError) {
+      console.error('Supabase admin.createUser error:', createError)
+      if (createError.message.includes('already registered') || createError.message.includes('User already exists')) {
         return NextResponse.json(
           { error: 'هذا البريد الإلكتروني مسجل بالفعل' },
           { status: 409 }
-        );
+        )
       }
-      
       return NextResponse.json(
-        { error: 'حدث خطأ أثناء التسجيل' },
+        { error: 'حدث خطأ أثناء إنشاء المستخدم' },
         { status: 500 }
-      );
+      )
     }
 
-    if (!data || !data.user) {
-      return NextResponse.json(
-        { error: 'حدث خطأ أثناء التسجيل' },
-        { status: 500 }
-      );
-    }
-
-    // إضافة المستخدم إلى جدول المستخدمين المخصص (يتوافق مع جدول users الحالي: BIGSERIAL id + password NOT NULL)
-    const { data: insertedUser, error: userError } = await supabase
+    // إدراج بيانات المستخدم في جدول users المخصص
+    const { data: insertedUser, error: userError } = await supabaseServer
       .from('users')
       .insert([
         {
@@ -70,15 +71,31 @@ export async function POST(request: NextRequest) {
         }
       ])
       .select('id, email, full_name')
-      .single();
+      .single()
 
     if (userError) {
-      console.error('Error inserting user data:', userError);
-      // في حالة فشل الإدراج في الجدول المحلي، لا نفشل التسجيل بالكامل لأن المصادقة تمت في Supabase
+      console.error('Error inserting user data:', userError)
+      return NextResponse.json(
+        { error: 'فشل إدراج بيانات المستخدم في جدول users. تحقق من مفاتيح Supabase وإعدادات البيئة.' },
+        { status: 500 }
+      )
     }
 
-    // استخدام رمز الجلسة من Supabase (قد يكون فارغًا إذا كان التحقق عبر البريد مطلوبًا)
-    const token = data.session?.access_token;
+    // تسجيل الدخول فورًا للصول على جلسة/توكن
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (loginError) {
+      console.error('Supabase login after create error:', loginError)
+      return NextResponse.json(
+        { error: 'تم إنشاء المستخدم لكن فشل تسجيل الدخول. حاول من صفحة تسجيل الدخول.' },
+        { status: 500 }
+      )
+    }
+
+    const token = loginData.session?.access_token
 
     return NextResponse.json(
       {
@@ -91,12 +108,12 @@ export async function POST(request: NextRequest) {
         },
       },
       { status: 201 }
-    );
+    )
   } catch (error) {
-    console.error('Register error:', error);
+    console.error('Register error:', error)
     return NextResponse.json(
       { error: 'حدث خطأ أثناء التسجيل' },
       { status: 500 }
-    );
+    )
   }
 }
