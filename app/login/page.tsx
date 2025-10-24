@@ -59,9 +59,15 @@ export default function LoginPage() {
         return;
       }
 
-      // حفظ الجلسة وإعادة التوجيه إلى الصفحة الرئيسية
-      await new Promise(resolve => setTimeout(resolve, 500)); // انتظار لضمان حفظ الجلسة
-      window.location.href = "/"; // استخدام إعادة التوجيه الكامل
+      // التحقق من وجود صفحة إعادة توجيه
+      const params = new URLSearchParams(window.location.search);
+      const redirectTo = params.get('redirectTo') || '/';
+
+      // انتظار لضمان حفظ الجلسة
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // إعادة التوجيه إلى الصفحة المطلوبة
+      window.location.href = redirectTo;
     } catch (err) {
       setError("حدث خطأ أثناء تسجيل الدخول")
       console.error(err)
