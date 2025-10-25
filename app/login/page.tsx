@@ -1,211 +1,136 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { supabase } from '@/lib/supabase'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, LogIn } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Plus, BarChart3, LogOut } from "lucide-react"
 import Link from "next/link"
+import { supabase } from '@/lib/supabase'
 
-export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+export default function Dashboard() {
+  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    const checkSession = async () => {
-      console.log('🟢🟢🟢 [NEW VERSION] فحص الجلسة...')
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        console.log("✅✅✅ [NEW VERSION] جلسة موجودة، إعادة توجيه")
-        window.location.href = '/'
-      } else {
-        console.log('⚠️⚠️⚠️ [NEW VERSION] لا توجد جلسة')
-      }
-    }
-    checkSession()
-  }, [router])
+    checkUser()
+  }, [])
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setLoading(true)
-
+  const checkUser = async () => {
+    console.log('🏠 [HOME-V2] فحص المستخدم...')
+    
     try {
-      if (!email || !password) {
-        setError("يرجى ملء جميع الحقول")
-        setLoading(false)
-        return
-      }
-
-      console.log("🔐🔐🔐 [NEW VERSION] تسجيل دخول...")
-
-      const { data: authData, error: loginError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (loginError) {
-        console.error("❌ [NEW VERSION] خطأ:", loginError)
-        setError(
-          loginError.message === "Invalid login credentials"
-            ? "البريد الإلكتروني أو كلمة المرور غير صحيحة"
-            : loginError.message || "حدث خطأ أثناء تسجيل الدخول"
-        )
-        setLoading(false)
-        return
-      }
-
-      if (!authData?.user || !authData?.session) {
-        console.error("❌ [NEW VERSION] لا توجد بيانات")
-        setError("حدث خطأ أثناء تسجيل الدخول")
-        setLoading(false)
-        return
-      }
-
-      console.log("✅✅✅ [NEW VERSION] نجح تسجيل الدخول")
-
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single()
-
-      if (!existingUser) {
-        console.log("📝 [NEW VERSION] إنشاء مستخدم جديد...")
-        await supabase
-          .from('users')
-          .insert([{
-            id: authData.user.id,
-            email: authData.user.email,
-            full_name: authData.user.email?.split('@')[0] || 'مستخدم جديد'
-          }])
-      }
-
-      if (authData.session.access_token) {
-        localStorage.setItem("authToken", authData.session.access_token)
-        console.log("✅ [NEW VERSION] حفظ التوكن")
-      }
-
-      console.log("🚀🚀🚀 [NEW VERSION] إعادة التوجيه...")
-      window.location.href = '/'
+      const { data: { session } } = await supabase.auth.getSession()
       
-    } catch (error) {
-      console.error("❌ [NEW VERSION] خطأ غير متوقع:", error)
-      setError("حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.")
+      if (!session) {
+        console.log('❌ [HOME-V2] لا توجد جلسة - إعادة توجيه للLogin')
+        window.location.replace('/login')
+        return
+      }
+      
+      console.log('✅ [HOME-V2] جلسة صالحة:', session.user.email)
+      setUser(session.user)
       setLoading(false)
+    } catch (error) {
+      console.error('❌ [HOME-V2] خطأ:', error)
+      window.location.replace('/login')
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl font-bold text-primary-foreground">🏆</span>
-          </div>
-          <h1 className="text-3xl font-bold text-foreground">محفظة الذهب</h1>
-          <p className="text-muted-foreground mt-2">Gold Wallet</p>
-        </div>
+  const handleLogout = async () => {
+    console.log('🚪 [HOME-V2] تسجيل خروج...')
+    await supabase.auth.signOut()
+    localStorage.removeItem('authToken')
+    window.location.replace('/login')
+  }
 
-        <Card className="border-border/50 shadow-2xl">
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
-            <CardDescription>
-              أدخل بيانات حسابك للوصول إلى محفظتك
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              {error && (
-                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-foreground">
-                  البريد الإلكتروني
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  name="email"
-                  autoComplete="email"
-                  placeholder="أدخل بريدك الإلكتروني"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                  className="border-border/50 focus:border-primary"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-foreground">
-                  كلمة المرور
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    placeholder="أدخل كلمة المرور"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={loading}
-                    className="border-border/50 focus:border-primary pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={loading}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 h-10 gap-2"
-              >
-                <LogIn className="w-4 h-4" />
-                {loading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
-              </Button>
-
-              <div className="text-center text-sm">
-                <p className="text-muted-foreground">
-                  ليس لديك حساب؟{" "}
-                  <Link
-                    href="/register"
-                    className="text-primary hover:underline font-semibold"
-                  >
-                    إنشاء حساب جديد
-                  </Link>
-                </p>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        <div className="text-center mt-6 text-sm text-muted-foreground">
-          <p>محفظة الذهب - تتبع استثماراتك بسهولة</p>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">جاري التحميل...</p>
         </div>
       </div>
+    )
+  }
+
+  if (!user) {
+    return null
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <span className="text-lg font-bold text-primary-foreground">🏆</span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">محفظة الذهب</h1>
+                <p className="text-sm text-muted-foreground">مرحباً {user.email}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link href="/analysis">
+                <Button variant="outline" className="gap-2 border-primary/20 text-primary">
+                  <BarChart3 className="w-4 h-4" />
+                  تحليل المشتريات
+                </Button>
+              </Link>
+              <Link href="/add-purchase">
+                <Button className="gap-2 bg-primary hover:bg-primary/90">
+                  <Plus className="w-4 h-4" />
+                  إضافة شراء
+                </Button>
+              </Link>
+              <Button
+                variant="outline"
+                className="gap-2 border-destructive/20 text-destructive hover:bg-destructive/10"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4" />
+                تسجيل الخروج
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card className="border-border/50 shadow-lg">
+          <CardHeader>
+            <CardTitle>مرحباً بك في محفظة الذهب! 🎉</CardTitle>
+            <CardDescription>تم تسجيل الدخول بنجاح</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                <p className="text-green-800 dark:text-green-200 font-semibold">✅ تم حل مشكلة الحلقة اللانهائية!</p>
+                <p className="text-green-700 dark:text-green-300 text-sm mt-2">
+                  الآن يمكنك التنقل بحرية بين الصفحات
+                </p>
+              </div>
+              
+              <div className="flex gap-4 mt-6">
+                <Link href="/add-purchase" className="flex-1">
+                  <Button className="w-full h-24 flex flex-col gap-2">
+                    <Plus className="w-8 h-8" />
+                    <span>إضافة شراء جديد</span>
+                  </Button>
+                </Link>
+                <Link href="/analysis" className="flex-1">
+                  <Button variant="outline" className="w-full h-24 flex flex-col gap-2">
+                    <BarChart3 className="w-8 h-8" />
+                    <span>عرض التحليلات</span>
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </main>
     </div>
   )
 }
