@@ -23,6 +23,7 @@ export default function LoginPage() {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
+        console.log("✅ جلسة نشطة موجودة، إعادة التوجيه...")
         router.replace('/')
       }
     }
@@ -43,6 +44,7 @@ export default function LoginPage() {
       }
 
       console.log("🔐 بدء عملية تسجيل الدخول...")
+      console.log("📧 البريد الإلكتروني:", email)
 
       // تسجيل الدخول باستخدام Supabase
       const { data: authData, error: loginError } = await supabase.auth.signInWithPassword({
@@ -69,13 +71,19 @@ export default function LoginPage() {
       }
 
       console.log("✅ تم تسجيل الدخول بنجاح")
+      console.log("👤 معرف المستخدم:", authData.user.id)
+      console.log("📧 البريد الإلكتروني:", authData.user.email)
 
       // التحقق من وجود المستخدم في جدول users
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: userCheckError } = await supabase
         .from('users')
         .select('*')
         .eq('id', authData.user.id)
         .single()
+
+      if (userCheckError && userCheckError.code !== 'PGRST116') {
+        console.error("⚠️ خطأ في التحقق من المستخدم:", userCheckError)
+      }
 
       // إذا لم يكن موجوداً في الجدول، أنشئه
       if (!existingUser) {
@@ -90,19 +98,23 @@ export default function LoginPage() {
 
         if (insertError) {
           console.error("⚠️ تحذير: فشل في إنشاء سجل المستخدم:", insertError)
-          // لا نوقف العملية، الجلسة موجودة بالفعل
+        } else {
+          console.log("✅ تم إنشاء سجل المستخدم بنجاح")
         }
+      } else {
+        console.log("✅ المستخدم موجود في الجدول")
       }
 
-      // الجلسة محفوظة تلقائياً في المتصفح عبر Supabase
-      // لا حاجة لحفظ إضافي على الخادم في معظم الحالات
+      // حفظ التوكن في localStorage للتوافق مع باقي الكود
+      if (authData.session.access_token) {
+        localStorage.setItem("authToken", authData.session.access_token)
+        console.log("✅ تم حفظ التوكن في localStorage")
+      }
 
       console.log("🚀 إعادة التوجيه إلى الصفحة الرئيسية...")
       
-      // انتظر قليلاً لضمان حفظ الجلسة ثم أعد التوجيه
-      setTimeout(() => {
-        window.location.href = '/'
-      }, 500)
+      // استخدام window.location بدلاً من router.push لضمان إعادة التحميل الكامل
+      window.location.href = '/'
       
     } catch (error) {
       console.error("❌ خطأ غير متوقع:", error)
