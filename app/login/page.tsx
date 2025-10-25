@@ -66,6 +66,8 @@ export default function LoginPage() {
       console.log("تم تسجيل الدخول بنجاح:", { user: data.user.id, session: data.session.access_token });
 
       try {
+        console.log("بدء عملية التحقق من المستخدم...");
+        
         // التحقق من وجود المستخدم في جدول users
         const { data: userData, error: userError } = await supabase
           .from('users')
@@ -73,27 +75,38 @@ export default function LoginPage() {
           .eq('id', data.user.id)
           .single();
 
-        if (userError && userError.code !== 'PGRST116') {
-          console.error("خطأ في جلب بيانات المستخدم:", userError);
-          throw userError;
-        }
+        console.log("نتيجة البحث عن المستخدم:", { userData, userError });
 
-        // إذا لم يكن المستخدم موجوداً في جدول users، قم بإنشائه
+        // إذا لم يكن المستخدم موجوداً، قم بإنشائه
         if (!userData) {
-          const { error: insertError } = await supabase
+          console.log("المستخدم غير موجود، جاري إنشاء سجل جديد...");
+          
+          const newUser = {
+            id: data.user.id,
+            email: data.user.email,
+            full_name: data.user.email?.split('@')[0] || 'مستخدم جديد',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+
+          console.log("بيانات المستخدم الجديد:", newUser);
+
+          const { data: insertData, error: insertError } = await supabase
             .from('users')
-            .insert([
-              {
-                id: data.user.id,
-                email: data.user.email,
-                full_name: data.user.email?.split('@')[0] || 'مستخدم جديد'
-              }
-            ]);
+            .insert([newUser])
+            .select();
 
           if (insertError) {
-            console.error("خطأ في إنشاء بيانات المستخدم:", insertError);
+            console.error("خطأ في إنشاء بيانات المستخدم:", {
+              error: insertError,
+              errorMessage: insertError.message,
+              errorDetails: insertError.details,
+              errorHint: insertError.hint
+            });
             throw insertError;
           }
+
+          console.log("تم إنشاء المستخدم بنجاح:", insertData);
         }
 
         // انتظر لحظة للتأكد من حفظ الجلسة
