@@ -105,33 +105,45 @@ export default function LoginPage() {
 
         // تخزين معلومات الجلسة
         if (authData.session) {
-          // حفظ معلومات الجلسة في localStorage
-          localStorage.setItem('supabase.auth.token', authData.session.access_token);
-          localStorage.setItem('supabase.auth.user', JSON.stringify(authData.user));
-          
-          // إرسال طلب لتعيين الكوكيز عبر API
-          await fetch('/api/auth/set-session', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              accessToken: authData.session.access_token,
-              userId: authData.user.id
-            })
-          });
+          try {
+            // حفظ معلومات الجلسة في localStorage
+            localStorage.setItem('supabase.auth.token', authData.session.access_token);
+            localStorage.setItem('supabase.auth.user', JSON.stringify(authData.user));
+            
+            // إرسال طلب لتعيين الكوكيز عبر API
+            const response = await fetch('/api/auth/set-session', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                accessToken: authData.session.access_token,
+                userId: authData.user.id
+              })
+            });
 
-          // التأكد من تحديث الجلسة
-          await supabase.auth.refreshSession();
-          
-          // انتظار لحظة للتأكد من حفظ كل شيء
-          await new Promise(resolve => setTimeout(resolve, 1000));
+            if (!response.ok) {
+              throw new Error('فشل في تعيين الكوكيز');
+            }
 
-          const params = new URLSearchParams(window.location.search);
-          const redirectTo = params.get('redirectTo') || '/';
+            // التأكد من تحديث الجلسة
+            await supabase.auth.refreshSession();
+            
+            // انتظار لحظة للتأكد من حفظ كل شيء
+            await new Promise(resolve => setTimeout(resolve, 500));
 
-          // استخدام router.push للتنقل
-          router.push(redirectTo);
+            const params = new URLSearchParams(window.location.search);
+            const redirectTo = params.get('redirectTo') || '/';
+
+            console.log("جاري إعادة التوجيه إلى:", redirectTo);
+            
+            // استخدام router.replace بدلاً من push لمنع العودة إلى صفحة تسجيل الدخول
+            router.replace(redirectTo);
+            
+          } catch (error) {
+            console.error("خطأ في حفظ معلومات الجلسة:", error);
+            throw new Error("فشل في حفظ معلومات الجلسة");
+          }
         } else {
           throw new Error("فشل في حفظ جلسة المستخدم");
         }
