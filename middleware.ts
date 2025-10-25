@@ -5,46 +5,44 @@ import type { NextRequest } from 'next/server'
 // الصفحات التي لا تحتاج إلى تسجيل دخول
 const publicPages = ["/login", "/register"]
 
+// الموارد التي لا تحتاج إلى فحص المصادقة
+const publicResources = [
+  '/_next',
+  '/static',
+  '/images',
+  '/favicon',
+  '/api'
+]
+
 export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname
+  const { pathname } = request.nextUrl
 
-  // السماح بالوصول إلى الموارد الثابتة والصور
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/static') ||
-    pathname.startsWith('/images') ||
-    pathname.startsWith('/favicon')
-  ) {
+  // التحقق مما إذا كان المسار من الموارد العامة
+  if (publicResources.some(resource => pathname.startsWith(resource))) {
     return NextResponse.next()
   }
 
-  // السماح بالوصول إلى الصفحات العامة
-  if (publicPages.includes(pathname)) {
-    return NextResponse.next()
-  }
-
-  // السماح بالوصول إلى API routes
-  if (pathname.startsWith("/api/")) {
-    return NextResponse.next()
-  }
-
-  // إنشاء عميل Supabase والتحقق من الجلسة
+  // إنشاء عميل Supabase والاستجابة
   const res = NextResponse.next()
   const supabase = createMiddlewareClient({ req: request, res })
-  
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
 
-    // إذا لم تكن هناك جلسة، قم بإعادة التوجيه إلى صفحة تسجيل الدخول
+  try {
+    // التحقق من الجلسة
+    const { data: { session } } = await supabase.auth.getSession()
+
+    // إذا كان المستخدم في صفحة عامة وهو مسجل الدخول
+    if (session && publicPages.includes(pathname)) {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+
+    // إذا كان المستخدم في صفحة محمية وغير مسجل الدخول
     if (!session && !publicPages.includes(pathname)) {
       const redirectUrl = new URL('/login', request.url)
       redirectUrl.searchParams.set('redirectTo', pathname)
       return NextResponse.redirect(redirectUrl)
     }
 
-    // إضافة معلومات الجلسة للاستجابة
+    // إضافة معلومات المستخدم للرؤوس إذا كان مسجل الدخول
     if (session) {
       res.headers.set('x-user-id', session.user.id)
       res.headers.set('x-user-email', session.user.email || '')
@@ -53,31 +51,15 @@ export async function middleware(request: NextRequest) {
     return res
   } catch (error) {
     console.error('Auth middleware error:', error)
-    const redirectUrl = new URL('/login', request.url)
-    redirectUrl.searchParams.set('error', 'auth_error')
-    return NextResponse.redirect(redirectUrl)
-  }
-
-  try {
-    // إنشاء عميل Supabase
-    const response = NextResponse.next()
-    const supabase = createMiddlewareClient({ req: request, res: response })
-
-    // التحقق من جلسة المستخدم
-    const { data: { session } } = await supabase.auth.getSession()
-
-    // إذا لم يكن المستخدم مسجل الدخول، قم بإعادة توجيهه إلى صفحة تسجيل الدخول
-    if (!session) {
-      const redirectUrl = new URL('/login', request.url)
-      redirectUrl.searchParams.set('redirectTo', pathname)
-      return NextResponse.redirect(redirectUrl)
+    
+    // في حالة الخطأ، التحقق إذا كان المسار عام
+    if (publicPages.includes(pathname)) {
+      return NextResponse.next()
     }
 
-    return response
-  } catch (error) {
-    console.error('Auth error:', error)
-    // في حالة حدوث خطأ، قم بإعادة توجيه المستخدم إلى صفحة تسجيل الدخول
+    // إعادة التوجيه إلى صفحة تسجيل الدخول مع رسالة خطأ
     const redirectUrl = new URL('/login', request.url)
+    redirectUrl.searchParams.set('error', 'auth_error')
     return NextResponse.redirect(redirectUrl)
   }
 }
