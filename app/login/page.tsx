@@ -41,6 +41,14 @@ export default function LoginPage() {
         setLoading(false)
         return
       }
+      
+      // التحقق من وجود جلسة قبل محاولة تسجيل الدخول
+      const { data: existingSession } = await supabase.auth.getSession()
+      if (existingSession?.session) {
+        console.log("تم اكتشاف جلسة نشطة، جاري إعادة التوجيه...");
+        window.location.href = "/"
+        return
+      }
 
       console.log("بدء عملية تسجيل الدخول...");
 
@@ -97,55 +105,29 @@ export default function LoginPage() {
 
         // نجاح تسجيل الدخول وإعداد المستخدم
         console.log("اكتملت عملية تسجيل الدخول بنجاح");
-        
-        // التأكد من حفظ الجلسة قبل إعادة التوجيه
-        await new Promise(resolve => setTimeout(resolve, 1000));
 
-        console.log("اكتملت عملية تسجيل الدخول بنجاح، جاري حفظ معلومات الجلسة...");
-
-        // تخزين معلومات الجلسة
         if (authData.session) {
           try {
-            // حفظ معلومات الجلسة في localStorage
-            localStorage.setItem('supabase.auth.token', authData.session.access_token);
-            localStorage.setItem('supabase.auth.user', JSON.stringify(authData.user));
+            // تعيين الكوكيز مباشرة
+            document.cookie = `sb-access-token=${authData.session.access_token}; path=/; max-age=28800; secure; samesite=strict`;
+            document.cookie = `sb-refresh-token=${authData.session.refresh_token}; path=/; max-age=28800; secure; samesite=strict`;
             
-            // إرسال طلب لتعيين الكوكيز عبر API
-            const response = await fetch('/api/auth/set-session', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                accessToken: authData.session.access_token,
-                userId: authData.user.id
-              })
-            });
-
-            if (!response.ok) {
-              throw new Error('فشل في تعيين الكوكيز');
-            }
-
-            // التأكد من تحديث الجلسة
+            // تحديث الجلسة للتأكد من أنها نشطة
             await supabase.auth.refreshSession();
             
-            // انتظار لحظة للتأكد من حفظ كل شيء
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // انتظار لحظة قصيرة
+            await new Promise(resolve => setTimeout(resolve, 100));
 
-            const params = new URLSearchParams(window.location.search);
-            const redirectTo = params.get('redirectTo') || '/';
-
-            console.log("جاري إعادة التوجيه إلى:", redirectTo);
-            
-            // استخدام router.replace بدلاً من push لمنع العودة إلى صفحة تسجيل الدخول
-            router.replace(redirectTo);
-            
+            // إعادة تحميل الصفحة مباشرة
+            window.location.href = '/';
           } catch (error) {
             console.error("خطأ في حفظ معلومات الجلسة:", error);
-            throw new Error("فشل في حفظ معلومات الجلسة");
+            setError("حدث خطأ أثناء حفظ معلومات الجلسة");
+            setLoading(false);
           }
         } else {
-          throw new Error("فشل في حفظ جلسة المستخدم");
+          setError("فشل في الحصول على معلومات الجلسة");
+          setLoading(false);
         }
 
       } catch (error) {

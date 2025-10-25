@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   description: "تطبيق محفظة الذهب لتتبع أسعار الذهب والمشتريات والأرباح والخسائر",
   generator: "v0.app",
   icons: {
+    icon: "/favicon.ico",
+  },
+  icons: {
     icon: [
       {
         url: '/icons/favicon.ico',
