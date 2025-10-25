@@ -50,8 +50,11 @@ export default function LoginPage() {
       // حفظ التوكن في localStorage للتوافق مع باقي التطبيق
       localStorage.setItem("authToken", data.session.access_token)
 
-      // إعادة التوجيه إلى الصفحة الرئيسية
-      router.push("/")
+      // انتظار قليلاً للتأكد من حفظ الجلسة
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // إعادة التوجيه إلى الصفحة الرئيسية - استخدام window.location للتأكد من refresh كامل
+      window.location.href = "/"
     } catch (err) {
       console.error('❌ [LOGIN] خطأ غير متوقع:', err)
       setError("حدث خطأ أثناء تسجيل الدخول")
