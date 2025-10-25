@@ -99,8 +99,8 @@ export default function LoginPage() {
 
       console.log("🚀 إعادة التوجيه إلى الصفحة الرئيسية...")
       
-      // استخدام router.replace بدلاً من window.location
-      router.replace('/')
+      // إعادة تحميل كاملة للصفحة لضمان تحديث الجلسة
+      window.location.href = '/'
       
     } catch (error) {
       console.error("❌ خطأ غير متوقع:", error)
