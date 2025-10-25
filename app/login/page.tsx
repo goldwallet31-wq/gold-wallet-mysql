@@ -108,26 +108,37 @@ export default function LoginPage() {
 
         if (authData.session) {
           try {
-            // تعيين الكوكيز مباشرة
-            document.cookie = `sb-access-token=${authData.session.access_token}; path=/; max-age=28800; secure; samesite=strict`;
-            document.cookie = `sb-refresh-token=${authData.session.refresh_token}; path=/; max-age=28800; secure; samesite=strict`;
-            
-            // تحديث الجلسة للتأكد من أنها نشطة
-            await supabase.auth.refreshSession();
-            
-            // انتظار لحظة قصيرة
-            await new Promise(resolve => setTimeout(resolve, 100));
+            // إرسال الجلسة إلى نقطة النهاية الخادمة لتعيين كوكيز httpOnly (تعمل على localhost أيضاً)
+            const res = await fetch('/api/auth/set-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                accessToken: authData.session.access_token,
+                userId: authData.user.id
+              })
+            })
 
-            // إعادة تحميل الصفحة مباشرة
-            window.location.href = '/';
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}))
+              console.error('set-session failed', err)
+              throw new Error('فشل في تعيين الكوكيز على الخادم')
+            }
+
+            // تحديث الجلسة محلياً للتأكد من أن المكتبة لديها أحدث التوكن
+            await supabase.auth.refreshSession()
+
+            // إعادة التوجيه إلى الصفحة الرئيسية (أو redirectTo إذا موجود)
+            const params = new URLSearchParams(window.location.search)
+            const redirectTo = params.get('redirectTo') || '/'
+            window.location.href = redirectTo
           } catch (error) {
-            console.error("خطأ في حفظ معلومات الجلسة:", error);
-            setError("حدث خطأ أثناء حفظ معلومات الجلسة");
-            setLoading(false);
+            console.error("خطأ في حفظ معلومات الجلسة:", error)
+            setError("حدث خطأ أثناء حفظ معلومات الجلسة")
+            setLoading(false)
           }
         } else {
-          setError("فشل في الحصول على معلومات الجلسة");
-          setLoading(false);
+          setError("فشل في الحصول على معلومات الجلسة")
+          setLoading(false)
         }
 
       } catch (error) {
