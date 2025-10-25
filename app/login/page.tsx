@@ -31,103 +31,87 @@ export default function LoginPage() {
         return
       }
 
-      if (email.length < 3) {
-        setError("البريد الإلكتروني أو اسم المستخدم قصير جداً")
-        setLoading(false)
-        return
-      }
-
-      if (password.length < 4) {
-        setError("كلمة المرور قصيرة جداً (4 أحرف على الأقل)")
-        setLoading(false)
-        return
-      }
+      console.log("بدء عملية تسجيل الدخول...");
 
       // تسجيل الدخول باستخدام Supabase
-      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+      const { data: authData, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (loginError) {
-        console.error("Login error:", loginError);
-        setError(loginError.message || "حدث خطأ أثناء تسجيل الدخول");
+        console.error("خطأ في تسجيل الدخول:", loginError);
+        setError(loginError.message === "Invalid login credentials"
+          ? "بيانات تسجيل الدخول غير صحيحة"
+          : loginError.message || "حدث خطأ أثناء تسجيل الدخول");
         setLoading(false);
         return;
       }
 
-      if (!data?.user || !data?.session) {
-        console.error("No user or session data");
+      if (!authData?.user || !authData?.session) {
+        console.error("لا توجد بيانات مستخدم أو جلسة");
         setError("حدث خطأ أثناء تسجيل الدخول");
         setLoading(false);
         return;
       }
 
-      console.log("تم تسجيل الدخول بنجاح:", { user: data.user.id, session: data.session.access_token });
+      console.log("تم تسجيل الدخول بنجاح، جاري التحقق من بيانات المستخدم...");
 
       try {
-        console.log("بدء عملية التحقق من المستخدم...");
-        
         // التحقق من وجود المستخدم في جدول users
-        const { data: userData, error: userError } = await supabase
+        const { data: existingUser, error: userError } = await supabase
           .from('users')
           .select('*')
-          .eq('id', data.user.id)
+          .eq('id', authData.user.id)
           .single();
 
-        console.log("نتيجة البحث عن المستخدم:", { userData, userError });
+        console.log("نتيجة البحث عن المستخدم:", { existingUser, userError });
 
-        // إذا لم يكن المستخدم موجوداً، قم بإنشائه
-        if (!userData) {
-          console.log("المستخدم غير موجود، جاري إنشاء سجل جديد...");
+        if (!existingUser && !userError) {
+          console.log("إنشاء سجل مستخدم جديد...");
           
-          const newUser = {
-            id: data.user.id,
-            email: data.user.email,
-            full_name: data.user.email?.split('@')[0] || 'مستخدم جديد',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-
-          console.log("بيانات المستخدم الجديد:", newUser);
-
-          const { data: insertData, error: insertError } = await supabase
+          const { error: insertError } = await supabase
             .from('users')
-            .insert([newUser])
-            .select();
+            .insert([{
+              id: authData.user.id,
+              email: authData.user.email,
+              full_name: authData.user.email?.split('@')[0] || 'مستخدم جديد'
+            }]);
 
           if (insertError) {
-            console.error("خطأ في إنشاء بيانات المستخدم:", {
-              error: insertError,
-              errorMessage: insertError.message,
-              errorDetails: insertError.details,
-              errorHint: insertError.hint
-            });
-            throw insertError;
+            console.error("خطأ في إنشاء سجل المستخدم:", insertError);
+            throw new Error("فشل في إنشاء سجل المستخدم");
           }
-
-          console.log("تم إنشاء المستخدم بنجاح:", insertData);
         }
 
-        // انتظر لحظة للتأكد من حفظ الجلسة
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // نجاح تسجيل الدخول وإعداد المستخدم
+        console.log("اكتملت عملية تسجيل الدخول بنجاح");
+        
+        // انتظار ثانيتين قبل إعادة التوجيه
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // التحقق من وجود صفحة إعادة توجيه
         const params = new URLSearchParams(window.location.search);
         const redirectTo = params.get('redirectTo') || '/';
+        
+        // التأكد من حفظ الجلسة قبل إعادة التوجيه
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log("تم التحقق من الجلسة، جاري إعادة التوجيه...");
+          window.location.href = redirectTo;
+        } else {
+          throw new Error("فشل في حفظ جلسة المستخدم");
+        }
 
-        // إعادة تحميل الصفحة بالكامل للتأكد من تحديث حالة المصادقة
-        window.location.href = redirectTo;
-      } catch (err) {
-        console.error("خطأ في إعداد بيانات المستخدم:", err);
-        setError("حدث خطأ أثناء إعداد حسابك");
+      } catch (error) {
+        console.error("خطأ في إعداد بيانات المستخدم:", error);
+        setError("حدث خطأ أثناء إعداد حسابك. يرجى المحاولة مرة أخرى.");
         setLoading(false);
       }
-    } catch (err) {
-      setError("حدث خطأ أثناء تسجيل الدخول")
-      console.error(err)
-    } finally {
-      setLoading(false)
+
+    } catch (error) {
+      console.error("خطأ غير متوقع:", error);
+      setError("حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.");
+      setLoading(false);
     }
   }
 
@@ -260,4 +244,3 @@ export default function LoginPage() {
     </div>
   )
 }
-
