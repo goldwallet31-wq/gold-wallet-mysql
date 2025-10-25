@@ -17,6 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { supabase } from "@/lib/supabaseClient"
+import { useRouter } from "next/navigation"
 
 interface GoldPrice {
   price: number
@@ -37,6 +39,8 @@ interface Purchase {
 }
 
 export default function Dashboard() {
+  const router = useRouter()
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null)
   const [goldPrice, setGoldPrice] = useState<GoldPrice | null>(null)
   const [priceHistory, setPriceHistory] = useState<any[]>([])
   const [purchases, setPurchases] = useState<Purchase[]>([])
@@ -64,18 +68,19 @@ export default function Dashboard() {
     setDeleteDialogOpen(true)
   }
 
-  const confirmDelete = () => {
-    if (purchaseToDelete) {
-      const updated = purchases.filter((p) => p.id !== purchaseToDelete)
-      setPurchases(updated)
-      try {
-        localStorage.setItem("goldPurchases", JSON.stringify(updated))
-      } catch (e) {
-        console.warn("Failed to persist purchases after delete:", e)
-      }
-      setPurchaseToDelete(null)
-      setDeleteDialogOpen(false)
+  const confirmDelete = async () => {
+    if (!purchaseToDelete || !sessionUserId) return
+    const { error } = await supabase
+      .from("purchases")
+      .delete()
+      .eq("id", purchaseToDelete)
+      .eq("user_id", sessionUserId)
+    if (error) {
+      console.error("فشل حذف الشراء", error)
     }
+    await loadPurchases()
+    setPurchaseToDelete(null)
+    setDeleteDialogOpen(false)
   }
 
   const handleEditPurchase = (purchase: Purchase) => {
@@ -83,8 +88,8 @@ export default function Dashboard() {
     setEditFormData(purchase)
   }
 
-  const handleSaveEdit = () => {
-    if (!editingPurchase) return
+  const handleSaveEdit = async () => {
+    if (!editingPurchase || !sessionUserId) return
 
     const weight = editFormData.weight ?? editingPurchase.weight
     const pricePerGram = editFormData.pricePerGram ?? editingPurchase.pricePerGram
@@ -94,25 +99,29 @@ export default function Dashboard() {
     const goldCost = weight * pricePerGram
     const totalCost = goldCost + manufacturing + otherExpenses
 
-    const updatedPurchase: Partial<Purchase> = {
+    const updatedRow = {
       date: editFormData.date ?? editingPurchase.date,
       karat: editFormData.karat ?? editingPurchase.karat,
       weight,
-      pricePerGram,
+      price_per_gram: pricePerGram,
       manufacturing,
-      otherExpenses,
-      totalCost,
+      other_expenses: otherExpenses,
+      total_cost: totalCost,
     }
 
-    const updated = purchases.map((p) => (p.id === editingPurchase.id ? { ...p, ...updatedPurchase } : p))
-    setPurchases(updated)
-    try {
-      localStorage.setItem("goldPurchases", JSON.stringify(updated))
-    } catch (e) {
-      console.warn("Failed to persist purchases after edit:", e)
+    const { error } = await supabase
+      .from("purchases")
+      .update(updatedRow)
+      .eq("id", editingPurchase.id)
+      .eq("user_id", sessionUserId)
+  
+    if (error) {
+      console.error("فشل تعديل الشراء", error)
     }
+  
     setEditingPurchase(null)
     setEditFormData({})
+    await loadPurchases()
   }
 
   const savePriceSample = (price: number) => {
@@ -192,16 +201,31 @@ export default function Dashboard() {
     console.log(`تم تحديث المخطط بـ ${mapped.length} نقطة بيانية`)
   }
 
+  // التأثير الأول: تحميل السعر وسعر الصرف وتحديث المخطط
   useEffect(() => {
     fetchGoldPrice()
     fetchExchangeRate()
-    loadPurchases()
     updateDisplayedHistory("1D")
     const interval = setInterval(() => {
       fetchGoldPrice()
       fetchExchangeRate()
     }, 30000)
     return () => clearInterval(interval)
+  }, [])
+
+  // التأثير الثاني: الحصول على جلسة المستخدم وتحميل مشترياته من Supabase
+  useEffect(() => {
+    const init = async () => {
+      const { data: sessionRes } = await supabase.auth.getSession()
+      const uid = sessionRes?.session?.user?.id || null
+      setSessionUserId(uid)
+      if (!uid) {
+        router.replace("/auth/sign-in")
+        return
+      }
+      await loadPurchases()
+    }
+    init()
   }, [])
 
   useEffect(() => {
@@ -241,11 +265,28 @@ export default function Dashboard() {
     }
   }
 
-  const loadPurchases = () => {
-    const stored = localStorage.getItem("goldPurchases")
-    if (stored) {
-      setPurchases(JSON.parse(stored))
+  const loadPurchases = async () => {
+    if (!sessionUserId) return
+    const { data, error } = await supabase
+      .from("purchases")
+      .select("id, date, karat, weight, price_per_gram, manufacturing, other_expenses, total_cost")
+      .eq("user_id", sessionUserId)
+      .order("date", { ascending: true })
+    if (error) {
+      console.error("خطأ في قراءة المشتريات من Supabase", error)
+      return
     }
+    const mapped = (data || []).map((r: any) => ({
+      id: r.id,
+      date: r.date,
+      karat: r.karat,
+      weight: Number(r.weight),
+      pricePerGram: Number(r.price_per_gram),
+      manufacturing: Number(r.manufacturing || 0),
+      otherExpenses: Number(r.other_expenses || 0),
+      totalCost: Number(r.total_cost),
+    }))
+    setPurchases(mapped)
   }
 
   const fetchExchangeRate = async () => {
@@ -330,6 +371,15 @@ export default function Dashboard() {
                     إضافة شراء
                   </Button>
                 </Link>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    await supabase.auth.signOut()
+                    router.replace("/auth/sign-in")
+                  }}
+                >
+                  تسجيل الخروج
+                </Button>
               </div>
             </div>
           </div>

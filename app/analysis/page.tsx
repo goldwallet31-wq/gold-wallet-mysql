@@ -21,6 +21,7 @@ import {
 } from "recharts"
 import { DollarSign, Hammer, TrendingUp, ArrowUpRight, ArrowDownRight, Pencil, Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { supabase } from "@/lib/supabaseClient"
 
 interface Purchase {
   id: string
@@ -58,18 +60,52 @@ export default function Analysis() {
   const [currency, setCurrency] = useState<"USD" | "EGP">("USD")
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null)
   const [editFormData, setEditFormData] = useState<Partial<Purchase>>({})
+  const router = useRouter()
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null)
 
+  // التأثير الأول: جلب سعر الذهب وسعر الصرف
   useEffect(() => {
-    loadPurchases()
     fetchGoldPrice()
     fetchExchangeRate()
   }, [])
 
-  const loadPurchases = () => {
-    const stored = localStorage.getItem("goldPurchases")
-    if (stored) {
-      setPurchases(JSON.parse(stored))
+  // التأثير الثاني: الحصول على الجلسة ثم تحميل المشتريات من Supabase
+  useEffect(() => {
+    const init = async () => {
+      const { data: sessionRes } = await supabase.auth.getSession()
+      const uid = sessionRes?.session?.user?.id || null
+      setSessionUserId(uid)
+      if (!uid) {
+        router.replace("/auth/sign-in")
+        return
+      }
+      await loadPurchases()
     }
+    init()
+  }, [])
+
+  const loadPurchases = async () => {
+    if (!sessionUserId) return
+    const { data, error } = await supabase
+      .from("purchases")
+      .select("id, date, karat, weight, price_per_gram, manufacturing, other_expenses, total_cost")
+      .eq("user_id", sessionUserId)
+      .order("date", { ascending: true })
+    if (error) {
+      console.error("خطأ في قراءة المشتريات من Supabase", error)
+      return
+    }
+    const mapped = (data || []).map((r: any) => ({
+      id: r.id,
+      date: r.date,
+      karat: r.karat,
+      weight: Number(r.weight),
+      pricePerGram: Number(r.price_per_gram),
+      manufacturing: Number(r.manufacturing || 0),
+      otherExpenses: Number(r.other_expenses || 0),
+      totalCost: Number(r.total_cost),
+    }))
+    setPurchases(mapped)
   }
 
   const fetchExchangeRate = async () => {
@@ -116,14 +152,19 @@ export default function Analysis() {
     setDeleteDialogOpen(true)
   }
 
-  const confirmDelete = () => {
-    if (purchaseToDelete) {
-      const updated = purchases.filter((p) => p.id !== purchaseToDelete)
-      setPurchases(updated)
-      localStorage.setItem("goldPurchases", JSON.stringify(updated))
-      setPurchaseToDelete(null)
-      setDeleteDialogOpen(false)
+  const confirmDelete = async () => {
+    if (!purchaseToDelete || !sessionUserId) return
+    const { error } = await supabase
+      .from("purchases")
+      .delete()
+      .eq("id", purchaseToDelete)
+      .eq("user_id", sessionUserId)
+    if (error) {
+      console.error("فشل حذف الشراء", error)
     }
+    await loadPurchases()
+    setPurchaseToDelete(null)
+    setDeleteDialogOpen(false)
   }
 
   const handleEditPurchase = (purchase: Purchase) => {
@@ -131,25 +172,40 @@ export default function Analysis() {
     setEditFormData(purchase)
   }
 
-  const handleSaveEdit = () => {
-    if (!editingPurchase) return
+  const handleSaveEdit = async () => {
+    if (!editingPurchase || !sessionUserId) return
 
-    // حساب التكلفة الإجمالية الجديدة
-    const goldCost = (editFormData.weight || 0) * (editFormData.pricePerGram || 0);
-    const otherExpenses = editFormData.otherExpenses || 0;
-    const totalCost = goldCost + (editFormData.manufacturing || 0) + otherExpenses;
-    
-    const updatedPurchase = {
-      ...editFormData,
-      otherExpenses: otherExpenses,
-      totalCost: totalCost
-    };
+    const weight = editFormData.weight ?? editingPurchase.weight
+    const pricePerGram = editFormData.pricePerGram ?? editingPurchase.pricePerGram
+    const manufacturing = editFormData.manufacturing ?? editingPurchase.manufacturing ?? 0
+    const otherExpenses = editFormData.otherExpenses ?? editingPurchase.otherExpenses ?? 0
 
-    const updated = purchases.map((p) => (p.id === editingPurchase.id ? { ...p, ...updatedPurchase } : p))
-    setPurchases(updated)
-    localStorage.setItem("goldPurchases", JSON.stringify(updated))
+    const goldCost = weight * pricePerGram
+    const totalCost = goldCost + manufacturing + otherExpenses
+
+    const updatedRow = {
+      date: editFormData.date ?? editingPurchase.date,
+      karat: editFormData.karat ?? editingPurchase.karat,
+      weight,
+      price_per_gram: pricePerGram,
+      manufacturing,
+      other_expenses: otherExpenses,
+      total_cost: totalCost,
+    }
+
+    const { error } = await supabase
+      .from("purchases")
+      .update(updatedRow)
+      .eq("id", editingPurchase.id)
+      .eq("user_id", sessionUserId)
+
+    if (error) {
+      console.error("فشل تعديل الشراء", error)
+    }
+
     setEditingPurchase(null)
     setEditFormData({})
+    await loadPurchases()
   }
 
   const totalGoldWeight = purchases.reduce((sum, p) => sum + p.weight, 0)

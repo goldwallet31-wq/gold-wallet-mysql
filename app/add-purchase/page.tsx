@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowRight } from "lucide-react"
 import Link from "next/link"
+import { supabase } from "@/lib/supabaseClient"
 
 interface Purchase {
   id: string
@@ -43,7 +44,19 @@ export default function AddPurchase() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null)
 
+  useEffect(() => {
+    const init = async () => {
+      const { data: sessionRes } = await supabase.auth.getSession()
+      const uid = sessionRes?.session?.user?.id || null
+      setSessionUserId(uid)
+      if (!uid) {
+        router.replace("/auth/sign-in")
+      }
+    }
+    init()
+  }, [])
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     
@@ -90,7 +103,7 @@ export default function AddPurchase() {
     return pureGoldPrice * targetKaratValue
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
@@ -117,7 +130,7 @@ export default function AddPurchase() {
       const goldCost = weight * adjustedPrice
       const totalCostWithManufacturing = goldCost + manufacturing
 
-      const newPurchase: Purchase = {
+      const newPurchase = {
         id: Date.now().toString(),
         date: new Date(formData.date).toISOString().split('T')[0],
         weight,
@@ -129,12 +142,29 @@ export default function AddPurchase() {
         otherExpenses: Number.parseFloat(formData.otherExpenses) || 0
       }
 
-      const stored = localStorage.getItem("goldPurchases")
-      const purchases: Purchase[] = stored ? JSON.parse(stored) : []
+      if (!sessionUserId) {
+        setError("يرجى تسجيل الدخول أولاً")
+        setLoading(false)
+        return
+      }
 
-      purchases.push(newPurchase)
+      const { error: dbError } = await supabase.from("purchases").insert([
+        {
+          id: newPurchase.id,
+          user_id: sessionUserId,
+          date: newPurchase.date,
+          karat: newPurchase.karat,
+          weight: newPurchase.weight,
+          price_per_gram: newPurchase.pricePerGram,
+          manufacturing: newPurchase.manufacturing,
+          other_expenses: newPurchase.otherExpenses,
+          total_cost: newPurchase.totalCost,
+        },
+      ])
 
-      localStorage.setItem("goldPurchases", JSON.stringify(purchases))
+      if (dbError) {
+        throw dbError
+      }
 
       router.push("/")
     } catch (err) {
