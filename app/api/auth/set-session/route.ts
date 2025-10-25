@@ -1,43 +1,38 @@
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
 export async function POST(request: Request) {
   try {
-    const { accessToken, userId } = await request.json()
-    
-    // التحقق من وجود البيانات المطلوبة
-    if (!accessToken || !userId) {
+    const { accessToken } = await request.json()
+
+    if (!accessToken) {
       return NextResponse.json(
-        { error: 'بيانات الجلسة غير مكتملة' },
+        { error: 'رمز الجلسة مفقود' },
         { status: 400 }
       )
     }
 
-    // إنشاء الرد مع الكوكيز
-    const response = NextResponse.json({ success: true })
+    const supabase = createRouteHandlerClient({ cookies })
 
-    // تعيين كوكيز آمنة للجلسة
-    response.cookies.set('sb-access-token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 60 * 60 * 8 // 8 ساعات
+    const { error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: accessToken, // نمرر نفس التوكن لأننا نستخدمه كـ dummy refresh token
     })
 
-    response.cookies.set('sb-user-id', userId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 60 * 60 * 8 // 8 ساعات
-    })
+    if (error) {
+      console.error('خطأ في تعيين الجلسة:', error)
+      return NextResponse.json(
+        { error: 'فشل في تعيين الجلسة' },
+        { status: 500 }
+      )
+    }
 
-    return response
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('خطأ في تعيين كوكيز الجلسة:', error)
+    console.error('Set-session error:', error)
     return NextResponse.json(
-      { error: 'فشل في تعيين كوكيز الجلسة' },
+      { error: 'حدث خطأ أثناء تعيين الجلسة' },
       { status: 500 }
     )
   }
