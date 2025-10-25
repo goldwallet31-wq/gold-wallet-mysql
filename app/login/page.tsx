@@ -19,12 +19,14 @@ export default function LoginPage() {
   const [error, setError] = useState("")
 
   useEffect(() => {
-    // التحقق من وجود جلسة نشطة
     const checkSession = async () => {
+      console.log('🟢🟢🟢 [NEW VERSION] فحص الجلسة...')
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        console.log("✅ جلسة نشطة موجودة، إعادة التوجيه...")
-        router.replace('/')
+        console.log("✅✅✅ [NEW VERSION] جلسة موجودة، إعادة توجيه")
+        window.location.href = '/'
+      } else {
+        console.log('⚠️⚠️⚠️ [NEW VERSION] لا توجد جلسة')
       }
     }
     checkSession()
@@ -36,24 +38,21 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      // التحقق من صحة البيانات
       if (!email || !password) {
         setError("يرجى ملء جميع الحقول")
         setLoading(false)
         return
       }
 
-      console.log("🔐 بدء عملية تسجيل الدخول...")
-      console.log("📧 البريد الإلكتروني:", email)
+      console.log("🔐🔐🔐 [NEW VERSION] تسجيل دخول...")
 
-      // تسجيل الدخول باستخدام Supabase
       const { data: authData, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (loginError) {
-        console.error("❌ خطأ في تسجيل الدخول:", loginError)
+        console.error("❌ [NEW VERSION] خطأ:", loginError)
         setError(
           loginError.message === "Invalid login credentials"
             ? "البريد الإلكتروني أو كلمة المرور غير صحيحة"
@@ -64,60 +63,41 @@ export default function LoginPage() {
       }
 
       if (!authData?.user || !authData?.session) {
-        console.error("❌ لا توجد بيانات مستخدم أو جلسة")
+        console.error("❌ [NEW VERSION] لا توجد بيانات")
         setError("حدث خطأ أثناء تسجيل الدخول")
         setLoading(false)
         return
       }
 
-      console.log("✅ تم تسجيل الدخول بنجاح")
-      console.log("👤 معرف المستخدم:", authData.user.id)
-      console.log("📧 البريد الإلكتروني:", authData.user.email)
+      console.log("✅✅✅ [NEW VERSION] نجح تسجيل الدخول")
 
-      // التحقق من وجود المستخدم في جدول users
-      const { data: existingUser, error: userCheckError } = await supabase
+      const { data: existingUser } = await supabase
         .from('users')
         .select('*')
         .eq('id', authData.user.id)
         .single()
 
-      if (userCheckError && userCheckError.code !== 'PGRST116') {
-        console.error("⚠️ خطأ في التحقق من المستخدم:", userCheckError)
-      }
-
-      // إذا لم يكن موجوداً في الجدول، أنشئه
       if (!existingUser) {
-        console.log("📝 إنشاء سجل مستخدم جديد...")
-        const { error: insertError } = await supabase
+        console.log("📝 [NEW VERSION] إنشاء مستخدم جديد...")
+        await supabase
           .from('users')
           .insert([{
             id: authData.user.id,
             email: authData.user.email,
             full_name: authData.user.email?.split('@')[0] || 'مستخدم جديد'
           }])
-
-        if (insertError) {
-          console.error("⚠️ تحذير: فشل في إنشاء سجل المستخدم:", insertError)
-        } else {
-          console.log("✅ تم إنشاء سجل المستخدم بنجاح")
-        }
-      } else {
-        console.log("✅ المستخدم موجود في الجدول")
       }
 
-      // حفظ التوكن في localStorage للتوافق مع باقي الكود
       if (authData.session.access_token) {
         localStorage.setItem("authToken", authData.session.access_token)
-        console.log("✅ تم حفظ التوكن في localStorage")
+        console.log("✅ [NEW VERSION] حفظ التوكن")
       }
 
-      console.log("🚀 إعادة التوجيه إلى الصفحة الرئيسية...")
-      
-      // استخدام window.location بدلاً من router.push لضمان إعادة التحميل الكامل
+      console.log("🚀🚀🚀 [NEW VERSION] إعادة التوجيه...")
       window.location.href = '/'
       
     } catch (error) {
-      console.error("❌ خطأ غير متوقع:", error)
+      console.error("❌ [NEW VERSION] خطأ غير متوقع:", error)
       setError("حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.")
       setLoading(false)
     }
@@ -126,7 +106,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo Section */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl font-bold text-primary-foreground">🏆</span>
@@ -135,7 +114,6 @@ export default function LoginPage() {
           <p className="text-muted-foreground mt-2">Gold Wallet</p>
         </div>
 
-        {/* Login Card */}
         <Card className="border-border/50 shadow-2xl">
           <CardHeader className="space-y-2">
             <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
@@ -146,14 +124,12 @@ export default function LoginPage() {
 
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
-              {/* Error Message */}
               {error && (
                 <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                   {error}
                 </div>
               )}
 
-              {/* Email Field */}
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-foreground">
                   البريد الإلكتروني
@@ -171,7 +147,6 @@ export default function LoginPage() {
                 />
               </div>
 
-              {/* Password Field */}
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-foreground">
                   كلمة المرور
@@ -203,7 +178,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Login Button */}
               <Button
                 type="submit"
                 disabled={loading}
@@ -213,7 +187,6 @@ export default function LoginPage() {
                 {loading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
               </Button>
 
-              {/* Register Link */}
               <div className="text-center text-sm">
                 <p className="text-muted-foreground">
                   ليس لديك حساب؟{" "}
@@ -229,11 +202,8 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        {/* Footer */}
         <div className="text-center mt-6 text-sm text-muted-foreground">
-          <p>
-            محفظة الذهب - تتبع استثماراتك بسهولة
-          </p>
+          <p>محفظة الذهب - تتبع استثماراتك بسهولة</p>
         </div>
       </div>
     </div>
