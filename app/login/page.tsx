@@ -23,7 +23,7 @@ export default function LoginPage() {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        router.push('/')
+        router.replace('/')
       }
     }
     checkSession()
@@ -41,117 +41,89 @@ export default function LoginPage() {
         setLoading(false)
         return
       }
-      
-      // التحقق من وجود جلسة قبل محاولة تسجيل الدخول
-      const { data: existingSession } = await supabase.auth.getSession()
-      if (existingSession?.session) {
-        console.log("تم اكتشاف جلسة نشطة، جاري إعادة التوجيه...");
-        window.location.href = "/"
-        return
-      }
 
-      console.log("بدء عملية تسجيل الدخول...");
+      console.log("🔐 بدء عملية تسجيل الدخول...")
 
       // تسجيل الدخول باستخدام Supabase
       const { data: authData, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
-      });
+      })
 
       if (loginError) {
-        console.error("خطأ في تسجيل الدخول:", loginError);
-        setError(loginError.message === "Invalid login credentials"
-          ? "بيانات تسجيل الدخول غير صحيحة"
-          : loginError.message || "حدث خطأ أثناء تسجيل الدخول");
-        setLoading(false);
-        return;
+        console.error("❌ خطأ في تسجيل الدخول:", loginError)
+        setError(
+          loginError.message === "Invalid login credentials"
+            ? "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+            : loginError.message || "حدث خطأ أثناء تسجيل الدخول"
+        )
+        setLoading(false)
+        return
       }
 
       if (!authData?.user || !authData?.session) {
-        console.error("لا توجد بيانات مستخدم أو جلسة");
-        setError("حدث خطأ أثناء تسجيل الدخول");
-        setLoading(false);
-        return;
+        console.error("❌ لا توجد بيانات مستخدم أو جلسة")
+        setError("حدث خطأ أثناء تسجيل الدخول")
+        setLoading(false)
+        return
       }
 
-      console.log("تم تسجيل الدخول بنجاح، جاري التحقق من بيانات المستخدم...");
+      console.log("✅ تم تسجيل الدخول بنجاح")
 
-      try {
-        // التحقق من وجود المستخدم في جدول users
-        const { data: existingUser, error: userError } = await supabase
+      // التحقق من وجود المستخدم في جدول users
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single()
+
+      // إذا لم يكن موجوداً في الجدول، أنشئه
+      if (!existingUser) {
+        console.log("📝 إنشاء سجل مستخدم جديد...")
+        const { error: insertError } = await supabase
           .from('users')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
+          .insert([{
+            id: authData.user.id,
+            email: authData.user.email,
+            full_name: authData.user.email?.split('@')[0] || 'مستخدم جديد'
+          }])
 
-        console.log("نتيجة البحث عن المستخدم:", { existingUser, userError });
-
-        if (!existingUser && !userError) {
-          console.log("إنشاء سجل مستخدم جديد...");
-          
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert([{
-              id: authData.user.id,
-              email: authData.user.email,
-              full_name: authData.user.email?.split('@')[0] || 'مستخدم جديد'
-            }]);
-
-          if (insertError) {
-            console.error("خطأ في إنشاء سجل المستخدم:", insertError);
-            throw new Error("فشل في إنشاء سجل المستخدم");
-          }
+        if (insertError) {
+          console.error("⚠️ تحذير: فشل في إنشاء سجل المستخدم:", insertError)
+          // لا نوقف العملية، الجلسة موجودة بالفعل
         }
-
-        // نجاح تسجيل الدخول وإعداد المستخدم
-        console.log("اكتملت عملية تسجيل الدخول بنجاح");
-
-        if (authData.session) {
-          try {
-            // إرسال الجلسة إلى نقطة النهاية الخادمة لتعيين كوكيز httpOnly (تعمل على localhost أيضاً)
-const res = await fetch('/api/auth/set-session', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    accessToken: authData.session.access_token,
-    refreshToken: authData.session.refresh_token
-  })
-})
-
-
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({}))
-              console.error('set-session failed', err)
-              throw new Error('فشل في تعيين الكوكيز على الخادم')
-            }
-
-            // تحديث الجلسة محلياً للتأكد من أن المكتبة لديها أحدث التوكن
-            await supabase.auth.refreshSession()
-
-            // إعادة التوجيه إلى الصفحة الرئيسية (أو redirectTo إذا موجود)
-            const params = new URLSearchParams(window.location.search)
-            const redirectTo = params.get('redirectTo') || '/'
-            window.location.href = redirectTo
-          } catch (error) {
-            console.error("خطأ في حفظ معلومات الجلسة:", error)
-            setError("حدث خطأ أثناء حفظ معلومات الجلسة")
-            setLoading(false)
-          }
-        } else {
-          setError("فشل في الحصول على معلومات الجلسة")
-          setLoading(false)
-        }
-
-      } catch (error) {
-        console.error("خطأ في إعداد بيانات المستخدم:", error);
-        setError("حدث خطأ أثناء إعداد حسابك. يرجى المحاولة مرة أخرى.");
-        setLoading(false);
       }
 
+      // حفظ الجلسة على الخادم (اختياري - للـ SSR)
+      try {
+        const response = await fetch('/api/auth/set-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accessToken: authData.session.access_token,
+            refreshToken: authData.session.refresh_token
+          })
+        })
+
+        if (!response.ok) {
+          console.warn('⚠️ تحذير: فشل في حفظ الجلسة على الخادم')
+        } else {
+          console.log("✅ تم حفظ الجلسة على الخادم")
+        }
+      } catch (err) {
+        console.warn("⚠️ تحذير: خطأ في حفظ الجلسة على الخادم:", err)
+        // لا نوقف العملية، الجلسة محفوظة في المتصفح
+      }
+
+      console.log("🚀 إعادة التوجيه إلى الصفحة الرئيسية...")
+      
+      // استخدام router.replace بدلاً من window.location
+      router.replace('/')
+      
     } catch (error) {
-      console.error("خطأ غير متوقع:", error);
-      setError("حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.");
-      setLoading(false);
+      console.error("❌ خطأ غير متوقع:", error)
+      setError("حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.")
+      setLoading(false)
     }
   }
 
@@ -185,10 +157,10 @@ const res = await fetch('/api/auth/set-session', {
                 </div>
               )}
 
-              {/* Email/Username Field */}
+              {/* Email Field */}
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-foreground">
-                  البريد الإلكتروني أو اسم المستخدم
+                  البريد الإلكتروني
                 </Label>
                 <Input
                   id="email"
@@ -257,19 +229,6 @@ const res = await fetch('/api/auth/set-session', {
                   </Link>
                 </p>
               </div>
-
-              {/* Demo Credentials */}
-              <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
-                <p className="text-xs text-muted-foreground mb-2">
-                  <strong>بيانات تجريبية:</strong>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  البريد: <code className="bg-background px-1 rounded">demo@gold.com</code>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  كلمة المرور: <code className="bg-background px-1 rounded">1234</code>
-                </p>
-              </div>
             </form>
           </CardContent>
         </Card>
@@ -277,7 +236,7 @@ const res = await fetch('/api/auth/set-session', {
         {/* Footer */}
         <div className="text-center mt-6 text-sm text-muted-foreground">
           <p>
-            هذا التطبيق يستخدم التخزين المحلي (localStorage) لحفظ البيانات
+            محفظة الذهب - تتبع استثماراتك بسهولة
           </p>
         </div>
       </div>
