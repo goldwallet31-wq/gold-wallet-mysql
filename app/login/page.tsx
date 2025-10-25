@@ -168,7 +168,9 @@ export default function LoginPage() {
                 </Label>
                 <Input
                   id="email"
-                  type="text"
+                  type="email"
+                  name="email"
+                  autoComplete="email"
                   placeholder="أدخل بريدك الإلكتروني"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -185,7 +187,9 @@ export default function LoginPage() {
                 <div className="relative">
                   <Input
                     id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
                     placeholder="أدخل كلمة المرور"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
