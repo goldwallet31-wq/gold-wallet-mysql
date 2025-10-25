@@ -94,26 +94,8 @@ export default function LoginPage() {
         }
       }
 
-      // حفظ الجلسة على الخادم (اختياري - للـ SSR)
-      try {
-        const response = await fetch('/api/auth/set-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            accessToken: authData.session.access_token,
-            refreshToken: authData.session.refresh_token
-          })
-        })
-
-        if (!response.ok) {
-          console.warn('⚠️ تحذير: فشل في حفظ الجلسة على الخادم')
-        } else {
-          console.log("✅ تم حفظ الجلسة على الخادم")
-        }
-      } catch (err) {
-        console.warn("⚠️ تحذير: خطأ في حفظ الجلسة على الخادم:", err)
-        // لا نوقف العملية، الجلسة محفوظة في المتصفح
-      }
+      // الجلسة محفوظة تلقائياً في المتصفح عبر Supabase
+      // لا حاجة لحفظ إضافي على الخادم في معظم الحالات
 
       console.log("🚀 إعادة التوجيه إلى الصفحة الرئيسية...")
       
