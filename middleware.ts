@@ -6,34 +6,52 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
   const supabase = createMiddlewareClient({ req, res })
 
-  // تحديث الجلسة (مهم جداً)
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
   const { pathname } = req.nextUrl
-
-  console.log(`🔍 Middleware check: ${pathname}`, { hasSession: !!session })
 
   // المسارات العامة (لا تحتاج مصادقة)
   const publicPaths = ['/login', '/register']
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path))
 
-  // إذا كان المسار عام والمستخدم مسجل دخول، أعده للصفحة الرئيسية
-  if (isPublicPath && session) {
-    console.log('✅ User logged in, redirecting to home from', pathname)
-    return NextResponse.redirect(new URL('/', req.url))
+  // مسارات API والملفات الثابتة - تجاهلها
+  if (pathname.startsWith('/api/') || pathname.startsWith('/_next/')) {
+    return res
   }
 
-  // إذا كان المسار محمي والمستخدم غير مسجل، أعده لصفحة تسجيل الدخول
-  if (!isPublicPath && !session) {
-    console.log('❌ No session, redirecting to login from', pathname)
-    const redirectUrl = new URL('/login', req.url)
-    redirectUrl.searchParams.set('redirectTo', pathname)
-    return NextResponse.redirect(redirectUrl)
-  }
+  try {
+    // تحديث الجلسة (مهم جداً)
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
 
-  return res
+    console.log(`🔍 [MIDDLEWARE] ${pathname}`, { 
+      hasSession: !!session,
+      isPublicPath,
+      user: session?.user?.email 
+    })
+
+    // إذا كان المسار عام والمستخدم مسجل دخول، أعده للصفحة الرئيسية
+    if (isPublicPath && session) {
+      console.log('✅ [MIDDLEWARE] User logged in, redirecting to home from', pathname)
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+
+    // إذا كان المسار محمي والمستخدم غير مسجل، أعده لصفحة تسجيل الدخول
+    if (!isPublicPath && !session) {
+      console.log('❌ [MIDDLEWARE] No session, redirecting to login from', pathname)
+      const redirectUrl = new URL('/login', req.url)
+      redirectUrl.searchParams.set('redirectTo', pathname)
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    return res
+  } catch (error) {
+    console.error('❌ [MIDDLEWARE] Error:', error)
+    // في حالة حدوث خطأ، اسمح بالوصول للمسارات العامة فقط
+    if (!isPublicPath) {
+      return NextResponse.redirect(new URL('/login', req.url))
+    }
+    return res
+  }
 }
 
 // تطبيق الـ middleware على جميع المسارات ما عدا الملفات الثابتة
@@ -45,7 +63,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - api routes
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|api/).*)',
   ],
 }
