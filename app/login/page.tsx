@@ -109,14 +109,15 @@ export default function LoginPage() {
         if (authData.session) {
           try {
             // إرسال الجلسة إلى نقطة النهاية الخادمة لتعيين كوكيز httpOnly (تعمل على localhost أيضاً)
-            const res = await fetch('/api/auth/set-session', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                accessToken: authData.session.access_token,
-                userId: authData.user.id
-              })
-            })
+const res = await fetch('/api/auth/set-session', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    accessToken: authData.session.access_token,
+    refreshToken: authData.session.refresh_token
+  })
+})
+
 
             if (!res.ok) {
               const err = await res.json().catch(() => ({}))
