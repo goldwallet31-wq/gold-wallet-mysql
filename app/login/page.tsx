@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,17 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    // التحقق من وجود جلسة نشطة
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.push('/')
+      }
+    }
+    checkSession()
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -87,17 +98,40 @@ export default function LoginPage() {
         // نجاح تسجيل الدخول وإعداد المستخدم
         console.log("اكتملت عملية تسجيل الدخول بنجاح");
         
-        // انتظار ثانيتين قبل إعادة التوجيه
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        const params = new URLSearchParams(window.location.search);
-        const redirectTo = params.get('redirectTo') || '/';
-        
         // التأكد من حفظ الجلسة قبل إعادة التوجيه
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          console.log("تم التحقق من الجلسة، جاري إعادة التوجيه...");
-          window.location.href = redirectTo;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        console.log("اكتملت عملية تسجيل الدخول بنجاح، جاري حفظ معلومات الجلسة...");
+
+        // تخزين معلومات الجلسة
+        if (authData.session) {
+          // حفظ معلومات الجلسة في localStorage
+          localStorage.setItem('supabase.auth.token', authData.session.access_token);
+          localStorage.setItem('supabase.auth.user', JSON.stringify(authData.user));
+          
+          // إرسال طلب لتعيين الكوكيز عبر API
+          await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              accessToken: authData.session.access_token,
+              userId: authData.user.id
+            })
+          });
+
+          // التأكد من تحديث الجلسة
+          await supabase.auth.refreshSession();
+          
+          // انتظار لحظة للتأكد من حفظ كل شيء
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          const params = new URLSearchParams(window.location.search);
+          const redirectTo = params.get('redirectTo') || '/';
+
+          // استخدام router.push للتنقل
+          router.push(redirectTo);
         } else {
           throw new Error("فشل في حفظ جلسة المستخدم");
         }
