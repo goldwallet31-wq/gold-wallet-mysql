@@ -63,17 +63,52 @@ export default function LoginPage() {
         return;
       }
 
-      // حفظ رمز الجلسة في localStorage
-      localStorage.setItem('supabase.auth.token', data.session.access_token);
-      
-      // التحقق من وجود صفحة إعادة توجيه
-      const params = new URLSearchParams(window.location.search);
-      const redirectTo = params.get('redirectTo') || '/';
+      console.log("تم تسجيل الدخول بنجاح:", { user: data.user.id, session: data.session.access_token });
 
-      // تحديث الصفحة وإعادة التوجيه
-      if (typeof window !== 'undefined') {
-        // إعادة تحميل الصفحة لتحديث حالة المصادقة
+      try {
+        // التحقق من وجود المستخدم في جدول users
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (userError && userError.code !== 'PGRST116') {
+          console.error("خطأ في جلب بيانات المستخدم:", userError);
+          throw userError;
+        }
+
+        // إذا لم يكن المستخدم موجوداً في جدول users، قم بإنشائه
+        if (!userData) {
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert([
+              {
+                id: data.user.id,
+                email: data.user.email,
+                full_name: data.user.email?.split('@')[0] || 'مستخدم جديد'
+              }
+            ]);
+
+          if (insertError) {
+            console.error("خطأ في إنشاء بيانات المستخدم:", insertError);
+            throw insertError;
+          }
+        }
+
+        // انتظر لحظة للتأكد من حفظ الجلسة
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // التحقق من وجود صفحة إعادة توجيه
+        const params = new URLSearchParams(window.location.search);
+        const redirectTo = params.get('redirectTo') || '/';
+
+        // إعادة تحميل الصفحة بالكامل للتأكد من تحديث حالة المصادقة
         window.location.href = redirectTo;
+      } catch (err) {
+        console.error("خطأ في إعداد بيانات المستخدم:", err);
+        setError("حدث خطأ أثناء إعداد حسابك");
+        setLoading(false);
       }
     } catch (err) {
       setError("حدث خطأ أثناء تسجيل الدخول")
