@@ -2,68 +2,41 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// الصفحات التي لا تحتاج إلى تسجيل دخول
-const publicPages = ["/login", "/register"]
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
 
-// الموارد التي لا تحتاج إلى فحص المصادقة
-const publicResources = [
-  '/_next',
-  '/static',
-  '/images',
-  '/favicon',
-  '/api'
-]
+  // تحديث الجلسة (مهم جداً)
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname } = req.nextUrl
 
-  // التحقق مما إذا كان المسار من الموارد العامة
-  if (publicResources.some(resource => pathname.startsWith(resource))) {
-    return NextResponse.next()
+  console.log(`🔍 Middleware check: ${pathname}`, { hasSession: !!session })
+
+  // المسارات العامة (لا تحتاج مصادقة)
+  const publicPaths = ['/login', '/register']
+  const isPublicPath = publicPaths.some(path => pathname.startsWith(path))
+
+  // إذا كان المسار عام والمستخدم مسجل دخول، أعده للصفحة الرئيسية
+  if (isPublicPath && session) {
+    console.log('✅ User logged in, redirecting to home from', pathname)
+    return NextResponse.redirect(new URL('/', req.url))
   }
 
-  // إنشاء عميل Supabase والاستجابة
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req: request, res })
-
-  try {
-    // التحقق من الجلسة
-    const { data: { session } } = await supabase.auth.getSession()
-
-    // إذا كان المستخدم في صفحة عامة وهو مسجل الدخول
-    if (session && publicPages.includes(pathname)) {
-      return NextResponse.redirect(new URL('/', request.url))
-    }
-
-    // إذا كان المستخدم في صفحة محمية وغير مسجل الدخول
-    if (!session && !publicPages.includes(pathname)) {
-      const redirectUrl = new URL('/login', request.url)
-      redirectUrl.searchParams.set('redirectTo', pathname)
-      return NextResponse.redirect(redirectUrl)
-    }
-
-    // إضافة معلومات المستخدم للرؤوس إذا كان مسجل الدخول
-    if (session) {
-      res.headers.set('x-user-id', session.user.id)
-      res.headers.set('x-user-email', session.user.email || '')
-    }
-
-    return res
-  } catch (error) {
-    console.error('Auth middleware error:', error)
-    
-    // في حالة الخطأ، التحقق إذا كان المسار عام
-    if (publicPages.includes(pathname)) {
-      return NextResponse.next()
-    }
-
-    // إعادة التوجيه إلى صفحة تسجيل الدخول مع رسالة خطأ
-    const redirectUrl = new URL('/login', request.url)
-    redirectUrl.searchParams.set('error', 'auth_error')
+  // إذا كان المسار محمي والمستخدم غير مسجل، أعده لصفحة تسجيل الدخول
+  if (!isPublicPath && !session) {
+    console.log('❌ No session, redirecting to login from', pathname)
+    const redirectUrl = new URL('/login', req.url)
+    redirectUrl.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(redirectUrl)
   }
+
+  return res
 }
 
+// تطبيق الـ middleware على جميع المسارات ما عدا الملفات الثابتة
 export const config = {
   matcher: [
     /*
@@ -71,8 +44,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public folder
      */
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
-
