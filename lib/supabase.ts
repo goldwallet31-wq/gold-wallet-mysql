@@ -17,8 +17,19 @@ const supabaseClient = createClient(
       storageKey: 'gold-wallet-auth',
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       autoRefreshToken: true,
-      detectSessionInUrl: true
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+      debug: process.env.NODE_ENV === 'development'
     },
+    // إضافة التكوين الإضافي للعميل
+    db: {
+      schema: 'public'
+    },
+    global: {
+      headers: {
+        'x-application-name': 'gold-wallet'
+      }
+    }
   }
 )
 

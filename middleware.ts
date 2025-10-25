@@ -8,13 +8,13 @@ const publicPages = ["/login", "/register"]
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  // السماح بالوصول إلى الملفات الثابتة
-  if (pathname.includes('.')) {
-    return NextResponse.next()
-  }
-
-  // السماح بالوصول إلى API routes
-  if (pathname.startsWith("/api/")) {
+  // السماح بالوصول إلى الموارد الثابتة والصور
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/static') ||
+    pathname.startsWith('/images') ||
+    pathname.startsWith('/favicon')
+  ) {
     return NextResponse.next()
   }
 
@@ -23,35 +23,39 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // السماح بالوصول إلى API routes
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next()
+  }
+
+  // إنشاء عميل Supabase والتحقق من الجلسة
+  const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req: request, res })
+  
   try {
-    // إنشاء عميل Supabase
-    const res = NextResponse.next()
-    const supabase = createMiddlewareClient({ req: request, res })
-    
-    // التحقق من الجلسة
-    const { data: { session }, error } = await supabase.auth.getSession()
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
 
-    if (error) {
-      throw error
-    }
-
-    // إذا لم يكن هناك جلسة وليست صفحة عامة
+    // إذا لم تكن هناك جلسة، قم بإعادة التوجيه إلى صفحة تسجيل الدخول
     if (!session && !publicPages.includes(pathname)) {
-      // حفظ الصفحة الحالية للعودة إليها بعد تسجيل الدخول
       const redirectUrl = new URL('/login', request.url)
-      redirectUrl.searchParams.set('returnTo', pathname)
+      redirectUrl.searchParams.set('redirectTo', pathname)
       return NextResponse.redirect(redirectUrl)
     }
 
-    // إذا كان هناك جلسة والصفحة عامة (مثل صفحة تسجيل الدخول)
-    if (session && publicPages.includes(pathname)) {
-      return NextResponse.redirect(new URL('/', request.url))
+    // إضافة معلومات الجلسة للاستجابة
+    if (session) {
+      res.headers.set('x-user-id', session.user.id)
+      res.headers.set('x-user-email', session.user.email || '')
     }
 
     return res
   } catch (error) {
-    console.error('Middleware auth error:', error)
-    return NextResponse.redirect(new URL('/login', request.url))
+    console.error('Auth middleware error:', error)
+    const redirectUrl = new URL('/login', request.url)
+    redirectUrl.searchParams.set('error', 'auth_error')
+    return NextResponse.redirect(redirectUrl)
   }
 
   try {

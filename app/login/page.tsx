@@ -43,7 +43,7 @@ export default function LoginPage() {
         return
       }
 
-      // تسجيل الدخول مباشرة باستخدام Supabase
+      // تسجيل الدخول باستخدام Supabase
       const { data, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -63,31 +63,18 @@ export default function LoginPage() {
         return;
       }
 
-      // تأكيد حفظ الجلسة
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
-        console.error("Session not saved after login");
-        setError("حدث خطأ في حفظ جلسة المستخدم");
-        setLoading(false);
-        return;
-      }
-
-      // الحصول على مسار إعادة التوجيه
+      // حفظ رمز الجلسة في localStorage
+      localStorage.setItem('supabase.auth.token', data.session.access_token);
+      
+      // التحقق من وجود صفحة إعادة توجيه
       const params = new URLSearchParams(window.location.search);
-      const returnTo = params.get('returnTo') || '/';
+      const redirectTo = params.get('redirectTo') || '/';
 
-      // انتظار لضمان حفظ الجلسة
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // إعادة التوجيه
-      console.log("Redirecting to:", returnTo);
-      window.location.href = returnTo;
-
-    } catch (err) {
-      console.error("Unexpected error during login:", err);
-      setError("حدث خطأ غير متوقع أثناء تسجيل الدخول");
-      setLoading(false);
-    }
+      // تحديث الصفحة وإعادة التوجيه
+      if (typeof window !== 'undefined') {
+        // إعادة تحميل الصفحة لتحديث حالة المصادقة
+        window.location.href = redirectTo;
+      }
     } catch (err) {
       setError("حدث خطأ أثناء تسجيل الدخول")
       console.error(err)
