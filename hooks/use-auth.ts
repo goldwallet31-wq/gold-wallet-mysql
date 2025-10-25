@@ -21,31 +21,38 @@ export function useAuth() {
     // التحقق من جلسة Supabase عند تحميل الصفحة
     const checkAuth = async () => {
       try {
-        console.log('🔍 useAuth: Checking authentication...')
+        console.log('🔍 useAuth: التحقق من المصادقة...')
         
+        // محاولة الحصول على الجلسة
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
-          console.error("❌ useAuth: Error checking auth:", error)
+          console.error("❌ useAuth: خطأ في التحقق من المصادقة:", error)
           if (mounted) {
             setIsLoggedIn(false)
             setUser(null)
+            setToken(null)
             setLoading(false)
+            // حذف التوكن من localStorage
+            localStorage.removeItem("authToken")
           }
           return
         }
 
         if (!session) {
-          console.log('⚠️ useAuth: No session found')
+          console.log('⚠️ useAuth: لا توجد جلسة نشطة')
           if (mounted) {
             setIsLoggedIn(false)
             setUser(null)
+            setToken(null)
             setLoading(false)
+            // حذف التوكن من localStorage
+            localStorage.removeItem("authToken")
           }
           return
         }
 
-        console.log('✅ useAuth: Session found for user:', session.user.email)
+        console.log('✅ useAuth: تم العثور على جلسة للمستخدم:', session.user.email)
 
         // الحصول على بيانات المستخدم من جدول المستخدمين
         const { data: profile, error: profileError } = await supabase
@@ -55,24 +62,33 @@ export function useAuth() {
           .single()
 
         if (profileError) {
-          console.warn('⚠️ useAuth: Could not fetch user profile:', profileError)
+          console.warn('⚠️ useAuth: تعذر جلب ملف المستخدم:', profileError)
         }
 
         if (mounted) {
-          setUser({
+          const userData = {
             id: session.user.id,
             email: session.user.email!,
             full_name: profile?.full_name || session.user.email!
-          })
+          }
+          
+          setUser(userData)
           setToken(session.access_token)
           setIsLoggedIn(true)
-          console.log('✅ useAuth: User state updated')
+          
+          // حفظ التوكن في localStorage للتوافق
+          localStorage.setItem("authToken", session.access_token)
+          
+          console.log('✅ useAuth: تم تحديث حالة المستخدم:', userData.email)
         }
       } catch (error) {
-        console.error("❌ useAuth: Unexpected error:", error)
+        console.error("❌ useAuth: خطأ غير متوقع:", error)
         if (mounted) {
           setIsLoggedIn(false)
           setUser(null)
+          setToken(null)
+          // حذف التوكن من localStorage
+          localStorage.removeItem("authToken")
         }
       } finally {
         if (mounted) {
@@ -84,12 +100,21 @@ export function useAuth() {
     // الاستماع لتغييرات الجلسة
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔔 useAuth: Auth state changed:', event)
+        console.log('🔔 useAuth: تغيرت حالة المصادقة:', event)
         
         if (!mounted) return
 
+        if (event === 'SIGNED_OUT') {
+          console.log('👋 useAuth: تم تسجيل الخروج')
+          setUser(null)
+          setToken(null)
+          setIsLoggedIn(false)
+          localStorage.removeItem("authToken")
+          return
+        }
+
         if (session) {
-          console.log('✅ useAuth: Session active')
+          console.log('✅ useAuth: جلسة نشطة:', session.user.email)
           
           // محاولة الحصول على الملف الشخصي
           const { data: profile } = await supabase
@@ -98,18 +123,24 @@ export function useAuth() {
             .eq('id', session.user.id)
             .single()
 
-          setUser({
+          const userData = {
             id: session.user.id,
             email: session.user.email!,
             full_name: profile?.full_name || session.user.email!
-          })
+          }
+          
+          setUser(userData)
           setToken(session.access_token)
           setIsLoggedIn(true)
+          
+          // حفظ التوكن في localStorage للتوافق
+          localStorage.setItem("authToken", session.access_token)
         } else {
-          console.log('⚠️ useAuth: Session ended')
+          console.log('⚠️ useAuth: انتهت الجلسة')
           setUser(null)
           setToken(null)
           setIsLoggedIn(false)
+          localStorage.removeItem("authToken")
         }
       }
     )
@@ -124,15 +155,29 @@ export function useAuth() {
 
   const logout = async () => {
     try {
-      console.log('🚪 useAuth: Logging out...')
-      await supabase.auth.signOut()
+      console.log('🚪 useAuth: جاري تسجيل الخروج...')
+      
+      // تسجيل الخروج من Supabase
+      const { error } = await supabase.auth.signOut()
+      
+      if (error) {
+        console.error('❌ useAuth: خطأ في تسجيل الخروج:', error)
+      }
+      
+      // تحديث الحالة المحلية
       setUser(null)
       setIsLoggedIn(false)
       setToken(null)
+      
+      // حذف التوكن من localStorage
+      localStorage.removeItem("authToken")
+      
+      // إعادة التوجيه إلى صفحة تسجيل الدخول
       router.push("/login")
-      console.log('✅ useAuth: Logged out successfully')
+      
+      console.log('✅ useAuth: تم تسجيل الخروج بنجاح')
     } catch (error) {
-      console.error("❌ useAuth: Error logging out:", error)
+      console.error("❌ useAuth: خطأ في تسجيل الخروج:", error)
     }
   }
 
