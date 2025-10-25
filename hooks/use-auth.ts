@@ -33,7 +33,6 @@ export function useAuth() {
             setUser(null)
             setToken(null)
             setLoading(false)
-            // حذف التوكن من localStorage
             localStorage.removeItem("authToken")
           }
           return
@@ -46,7 +45,6 @@ export function useAuth() {
             setUser(null)
             setToken(null)
             setLoading(false)
-            // حذف التوكن من localStorage
             localStorage.removeItem("authToken")
           }
           return
@@ -75,8 +73,6 @@ export function useAuth() {
           setUser(userData)
           setToken(session.access_token)
           setIsLoggedIn(true)
-          
-          // حفظ التوكن في localStorage للتوافق
           localStorage.setItem("authToken", session.access_token)
           
           console.log('✅ useAuth: تم تحديث حالة المستخدم:', userData.email)
@@ -87,7 +83,6 @@ export function useAuth() {
           setIsLoggedIn(false)
           setUser(null)
           setToken(null)
-          // حذف التوكن من localStorage
           localStorage.removeItem("authToken")
         }
       } finally {
@@ -116,7 +111,6 @@ export function useAuth() {
         if (session) {
           console.log('✅ useAuth: جلسة نشطة:', session.user.email)
           
-          // محاولة الحصول على الملف الشخصي
           const { data: profile } = await supabase
             .from('users')
             .select('full_name')
@@ -132,8 +126,6 @@ export function useAuth() {
           setUser(userData)
           setToken(session.access_token)
           setIsLoggedIn(true)
-          
-          // حفظ التوكن في localStorage للتوافق
           localStorage.setItem("authToken", session.access_token)
         } else {
           console.log('⚠️ useAuth: انتهت الجلسة')
@@ -157,22 +149,17 @@ export function useAuth() {
     try {
       console.log('🚪 useAuth: جاري تسجيل الخروج...')
       
-      // تسجيل الخروج من Supabase
       const { error } = await supabase.auth.signOut()
       
       if (error) {
         console.error('❌ useAuth: خطأ في تسجيل الخروج:', error)
       }
       
-      // تحديث الحالة المحلية
       setUser(null)
       setIsLoggedIn(false)
       setToken(null)
-      
-      // حذف التوكن من localStorage
       localStorage.removeItem("authToken")
       
-      // إعادة التوجيه إلى صفحة تسجيل الدخول
       router.push("/login")
       
       console.log('✅ useAuth: تم تسجيل الخروج بنجاح')
