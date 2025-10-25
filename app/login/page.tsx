@@ -50,24 +50,44 @@ export default function LoginPage() {
       });
 
       if (loginError) {
+        console.error("Login error:", loginError);
         setError(loginError.message || "حدث خطأ أثناء تسجيل الدخول");
+        setLoading(false);
         return;
       }
 
       if (!data?.user || !data?.session) {
+        console.error("No user or session data");
         setError("حدث خطأ أثناء تسجيل الدخول");
+        setLoading(false);
         return;
       }
 
-      // التحقق من وجود صفحة إعادة توجيه
+      // تأكيد حفظ الجلسة
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        console.error("Session not saved after login");
+        setError("حدث خطأ في حفظ جلسة المستخدم");
+        setLoading(false);
+        return;
+      }
+
+      // الحصول على مسار إعادة التوجيه
       const params = new URLSearchParams(window.location.search);
-      const redirectTo = params.get('redirectTo') || '/';
+      const returnTo = params.get('returnTo') || '/';
 
       // انتظار لضمان حفظ الجلسة
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // إعادة التوجيه إلى الصفحة المطلوبة
-      window.location.href = redirectTo;
+      // إعادة التوجيه
+      console.log("Redirecting to:", returnTo);
+      window.location.href = returnTo;
+
+    } catch (err) {
+      console.error("Unexpected error during login:", err);
+      setError("حدث خطأ غير متوقع أثناء تسجيل الدخول");
+      setLoading(false);
+    }
     } catch (err) {
       setError("حدث خطأ أثناء تسجيل الدخول")
       console.error(err)

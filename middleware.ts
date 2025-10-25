@@ -8,44 +8,50 @@ const publicPages = ["/login", "/register"]
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  // إنشاء عميل Supabase
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req: request, res })
-  
+  // السماح بالوصول إلى الملفات الثابتة
+  if (pathname.includes('.')) {
+    return NextResponse.next()
+  }
+
+  // السماح بالوصول إلى API routes
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next()
+  }
+
+  // السماح بالوصول إلى الصفحات العامة
+  if (publicPages.includes(pathname)) {
+    return NextResponse.next()
+  }
+
   try {
+    // إنشاء عميل Supabase
+    const res = NextResponse.next()
+    const supabase = createMiddlewareClient({ req: request, res })
+    
     // التحقق من الجلسة
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { session }, error } = await supabase.auth.getSession()
 
-    // إذا كان المستخدم مسجل الدخول والصفحة عامة، توجيه إلى الصفحة الرئيسية
-    if (session && publicPages.includes(pathname)) {
-      const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = "/"
-      return NextResponse.redirect(redirectUrl)
+    if (error) {
+      throw error
     }
 
-    // السماح بالوصول إلى الصفحات العامة للمستخدمين غير المسجلين
-    if (!session && publicPages.includes(pathname)) {
-      return res
-    }
-
-    // السماح بالوصول إلى API routes
-    if (pathname.startsWith("/api/")) {
-      return res
-    }
-
-    // إذا لم يكن هناك جلسة، قم بإعادة التوجيه إلى صفحة تسجيل الدخول
-    if (!session) {
+    // إذا لم يكن هناك جلسة وليست صفحة عامة
+    if (!session && !publicPages.includes(pathname)) {
+      // حفظ الصفحة الحالية للعودة إليها بعد تسجيل الدخول
       const redirectUrl = new URL('/login', request.url)
-      redirectUrl.searchParams.set('redirectTo', pathname)
+      redirectUrl.searchParams.set('returnTo', pathname)
       return NextResponse.redirect(redirectUrl)
+    }
+
+    // إذا كان هناك جلسة والصفحة عامة (مثل صفحة تسجيل الدخول)
+    if (session && publicPages.includes(pathname)) {
+      return NextResponse.redirect(new URL('/', request.url))
     }
 
     return res
   } catch (error) {
-    console.error('Auth error:', error)
-    // في حالة حدوث خطأ، قم بإعادة توجيه المستخدم إلى صفحة تسجيل الدخول
-    const redirectUrl = new URL('/login', request.url)
-    return NextResponse.redirect(redirectUrl)
+    console.error('Middleware auth error:', error)
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
   try {
