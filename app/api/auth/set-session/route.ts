@@ -1,38 +1,41 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function POST(request: Request) {
   try {
-    const { accessToken } = await request.json()
+    const { accessToken, refreshToken } = await request.json()
 
-    if (!accessToken) {
+    if (!accessToken || !refreshToken) {
+      console.error('❌ Missing tokens:', { accessToken, refreshToken })
       return NextResponse.json(
-        { error: 'رمز الجلسة مفقود' },
+        { error: 'Missing access or refresh token' },
         { status: 400 }
       )
     }
 
     const supabase = createRouteHandlerClient({ cookies })
 
+    // نحاول ضبط الجلسة باستخدام Supabase helper
     const { error } = await supabase.auth.setSession({
       access_token: accessToken,
-      refresh_token: accessToken, // نمرر نفس التوكن لأننا نستخدمه كـ dummy refresh token
+      refresh_token: refreshToken,
     })
 
     if (error) {
-      console.error('خطأ في تعيين الجلسة:', error)
+      console.error('❌ setSession error:', error)
       return NextResponse.json(
-        { error: 'فشل في تعيين الجلسة' },
+        { error: 'فشل في إنشاء الجلسة على الخادم' },
         { status: 500 }
       )
     }
 
+    console.log('✅ Session saved successfully!')
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Set-session error:', error)
+    console.error('❌ Unexpected set-session error:', error)
     return NextResponse.json(
-      { error: 'حدث خطأ أثناء تعيين الجلسة' },
+      { error: 'حدث خطأ أثناء حفظ الجلسة' },
       { status: 500 }
     )
   }
