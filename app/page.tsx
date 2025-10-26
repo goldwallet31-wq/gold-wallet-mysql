@@ -53,7 +53,15 @@ export default function Dashboard() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [purchaseToDelete, setPurchaseToDelete] = useState<string | null>(null)
 
+  // حالة فلاتر التاريخ للعرض
+  const [filterStart, setFilterStart] = useState<string>("")
+  const [filterEnd, setFilterEnd] = useState<string>("")
   const [timeframe, setTimeframe] = useState<"1D" | "1W" | "1M" | "3M" | "1Y">("1D")
+  
+  // إضافة حالات جديدة لبيانات التاريخ من API
+  const [goldHistory, setGoldHistory] = useState<any[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
 
   const TIMEFRAMES: Record<typeof timeframe, number> = {
     "1D": 24 * 60 * 60 * 1000,
@@ -63,6 +71,130 @@ export default function Dashboard() {
     "1Y": 365 * 24 * 60 * 60 * 1000,
   }
 
+  // جلب بيانات التاريخ من API واستخدامها في المخطط
+  const fetchGoldHistory = async (tf: typeof timeframe = timeframe) => {
+    setLoadingHistory(true)
+    setHistoryError(null)
+
+    try {
+      const API_TF_MAP: Record<typeof timeframe, string> = {
+        "1D": "day",
+        "1W": "week",
+        "1M": "month",
+        "3M": "3mo",
+        "1Y": "year",
+      }
+      const tfParam = API_TF_MAP[tf] || "month"
+
+      const response = await fetch(`/api/gold-price/history?tf=${tfParam}`)
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`)
+      }
+      const data = await response.json()
+      
+      // تعديل: التحقق من البيانات بشكل أكثر مرونة
+      if (!data.success) {
+        console.warn("API returned success=false")
+      }
+      
+      // استخدام مصفوفة فارغة إذا لم تكن البيانات متوفرة
+      const apiData = data.data && Array.isArray(data.data) ? data.data : []
+      
+      if (apiData.length === 0) {
+        console.warn("No historical data available from API, falling back to local data")
+        // بناء بيانات محلية للفترة المحددة وعدم الكتابة فوق بيانات API لاحقًا
+        const raw = loadPersistedHistory()
+        raw.sort((a, b) => a.timestamp - b.timestamp)
+        const now = Date.now()
+        const rangeMs = TIMEFRAMES[tf]
+        const filtered = raw.filter((p) => p.timestamp >= now - rangeMs)
+        if (filtered.length < 2) {
+          const startTime = now - rangeMs
+          const currentPrice = goldPrice?.price || 2050
+          filtered.unshift({ timestamp: startTime, price: currentPrice * 0.98 })
+          if (tf !== "1D") {
+            filtered.push({ timestamp: startTime + rangeMs / 2, price: currentPrice * 0.99 })
+          }
+          filtered.push({ timestamp: now, price: currentPrice })
+        }
+        const mapped = filtered.map((p) => ({
+          ts: p.timestamp,
+          time: tf === "1D"
+            ? new Date(p.timestamp).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
+            : new Date(p.timestamp).toLocaleDateString("ar-EG"),
+          price: p.price,
+          priceUSD: p.price,
+        }))
+        setGoldHistory(mapped)
+        setPriceHistory(mapped)
+        if (mapped.length > 1) {
+          const last = Number(mapped[mapped.length - 1].price)
+          const firstIdx = mapped.findIndex((d: any) => Number(d.price) > 0)
+          const first = firstIdx !== -1 ? Number(mapped[firstIdx].price) : 0
+          const change = first > 0 ? ((last - first) / first) * 100 : 0
+          setPriceChange(change)
+        }
+        return
+      }
+      
+      const mappedData = apiData.map((item: any) => {
+        const ts = typeof item.ts === "number" ? item.ts : new Date(item.dateTime || item.date).getTime()
+        const timeLabel = tf === "1D"
+          ? new Date(item.dateTime || ts).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
+          : new Date(item.date).toLocaleDateString("ar-EG")
+        return {
+          ts,
+          time: timeLabel,
+          price: item.priceUSD,
+          priceUSD: item.priceUSD,
+        }
+      })
+      
+      mappedData.sort((a: any, b: any) => a.ts - b.ts)
+      setGoldHistory(mappedData)
+      setPriceHistory(mappedData)
+      
+      if (mappedData.length > 1) {
+        const first = mappedData[0].priceUSD
+        const last = mappedData[mappedData.length - 1].priceUSD
+        const change = first > 0 ? ((last - first) / first) * 100 : 0
+        setPriceChange(change)
+      }
+      
+      console.log(`تم تحميل ${mappedData.length} نقطة بيانية من API للفترة ${tf}`)
+    } catch (error) {
+      console.error("خطأ في جلب بيانات التاريخ:", error)
+      setHistoryError("فشل في تحميل البيانات التاريخية")
+      // فallback محلي مماثل عند الفشل
+      const raw = loadPersistedHistory()
+      raw.sort((a, b) => a.timestamp - b.timestamp)
+      const now = Date.now()
+      const rangeMs = TIMEFRAMES[tf]
+      const filtered = raw.filter((p) => p.timestamp >= now - rangeMs)
+      if (filtered.length < 2) {
+        const startTime = now - rangeMs
+        const currentPrice = goldPrice?.price || 2050
+        filtered.unshift({ timestamp: startTime, price: currentPrice * 0.98 })
+        if (tf !== "1D") {
+          filtered.push({ timestamp: startTime + rangeMs / 2, price: currentPrice * 0.99 })
+        }
+        filtered.push({ timestamp: now, price: currentPrice })
+      }
+      const mapped = filtered.map((p) => ({
+        ts: p.timestamp,
+        time: tf === "1D"
+          ? new Date(p.timestamp).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
+          : new Date(p.timestamp).toLocaleDateString("ar-EG"),
+        price: p.price,
+        priceUSD: p.price,
+      }))
+      setGoldHistory(mapped)
+      setPriceHistory(mapped)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+ 
   const handleDeletePurchase = (id: string) => {
     setPurchaseToDelete(id)
     setDeleteDialogOpen(true)
@@ -185,16 +317,21 @@ export default function Dashboard() {
     }
     
     const mapped = filtered.map((p) => ({
-      time: tf === "1D" ? new Date(p.timestamp).toLocaleTimeString("ar-EG") : new Date(p.timestamp).toLocaleDateString("ar-EG"),
+      ts: p.timestamp,
+      time: tf === "1D"
+        ? new Date(p.timestamp).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
+        : new Date(p.timestamp).toLocaleDateString("ar-EG"),
       price: p.price,
     }))
     
     setPriceHistory(mapped)
     
     if (mapped.length > 1) {
-      const last = mapped[mapped.length - 1].price
-      const first = mapped[0].price
-      const change = ((last - first) / first) * 100
+      const last = Number(mapped[mapped.length - 1].price)
+      // استخدم أول قيمة غير صفرية كأساس لتجنّب القسمة على صفر
+      const firstNonZeroIndex = mapped.findIndex((d: any) => Number(d.price) > 0)
+      const first = firstNonZeroIndex !== -1 ? Number(mapped[firstNonZeroIndex].price) : 0
+      const change = first > 0 ? ((last - first) / first) * 100 : 0
       setPriceChange(change)
     }
     
@@ -205,7 +342,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchGoldPrice()
     fetchExchangeRate()
-    updateDisplayedHistory("1D")
+    fetchGoldHistory("1D")
     const interval = setInterval(() => {
       fetchGoldPrice()
       fetchExchangeRate()
@@ -223,13 +360,20 @@ export default function Dashboard() {
         router.replace("/auth/sign-in")
         return
       }
-      await loadPurchases()
+      // لا تعتمد على الحالة هنا، قد لا تكون محدثة بعد
+      // سيقوم التأثير التالي بتحميل المشتريات عند تثبيت sessionUserId
     }
     init()
   }, [])
 
+  // حمل المشتريات عند تثبيت sessionUserId
   useEffect(() => {
-    updateDisplayedHistory(timeframe)
+    if (sessionUserId) {
+      loadPurchases()
+    }
+  }, [sessionUserId])
+  useEffect(() => {
+    fetchGoldHistory(timeframe)
   }, [timeframe])
 
   const fetchGoldPrice = async () => {
@@ -250,7 +394,7 @@ export default function Dashboard() {
       })
 
       savePriceSample(newPrice)
-      updateDisplayedHistory()
+      // لا تقم بتحديث المخطط المحسوب من API تلقائيًا هنا حتى لا يصبح خطًا مستقيمًا
       setLoading(false)
     } catch (error) {
       console.error("[v0] Error fetching gold price:", error)
@@ -260,7 +404,7 @@ export default function Dashboard() {
         timestamp: Date.now(),
       })
       savePriceSample(2050)
-      updateDisplayedHistory()
+      // تجنّب الكتابة فوق بيانات المخطط التاريخية من API
       setLoading(false)
     }
   }
@@ -289,6 +433,48 @@ export default function Dashboard() {
     setPurchases(mapped)
   }
 
+  // المشتريات المعروضة حسب الفلتر
+  const displayPurchases = purchases.filter((p) => {
+    const d = p.date
+    const afterStart = filterStart ? d >= filterStart : true
+    const beforeEnd = filterEnd ? d <= filterEnd : true
+    return afterStart && beforeEnd
+  })
+
+  const displayTotalInvestment = displayPurchases.reduce((sum, p) => sum + p.totalCost, 0)
+
+  const exportCsv = () => {
+    if (displayPurchases.length === 0) return
+    const header = [
+      "id",
+      "date",
+      "karat",
+      "weight",
+      "price_per_gram",
+      "manufacturing",
+      "other_expenses",
+      "total_cost",
+    ]
+    const rows = displayPurchases.map((p) => [
+      p.id,
+      p.date,
+      String(p.karat ?? 21),
+      p.weight.toFixed(2),
+      p.pricePerGram.toFixed(2),
+      (p.manufacturing ?? 0).toFixed(2),
+      (p.otherExpenses ?? 0).toFixed(2),
+      p.totalCost.toFixed(2),
+    ])
+    const csv = [header.join(","), ...rows.map((r) => r.join(","))].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    const today = new Date().toISOString().slice(0, 10)
+    a.download = `purchases-${today}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
   const fetchExchangeRate = async () => {
     try {
       const response = await fetch("/api/exchange-rate")
@@ -493,22 +679,49 @@ export default function Dashboard() {
               <CardContent>
                 {priceHistory.length > 1 ? (
                   <ResponsiveContainer width="100%" height={400}>
-                    <AreaChart data={priceHistory}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis dataKey="time" stroke="var(--color-muted-foreground)" />
-                      <YAxis stroke="var(--color-muted-foreground)" />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "var(--color-card)",
-                          border: "1px solid var(--color-border)",
-                          borderRadius: "8px",
-                        }}
-                        formatter={(value) =>
-                          `${currency === "EGP" ? "ج.م " : "$"}${(Number(value) * (currency === "EGP" ? exchangeRate : 1)).toFixed(2)}`
-                        }
-                      />
-                      <Area type="monotone" dataKey="price" stroke="var(--color-primary)" fillOpacity={1} fill="url(#colorPrice)" />
-                    </AreaChart>
+                    {(() => {
+                      const prices = priceHistory.map((d: any) => d.price)
+                      const minPrice = prices.length ? Math.min(...prices) : 0
+                      const maxPrice = prices.length ? Math.max(...prices) : 0
+                      const delta = maxPrice - minPrice
+                      const padding = delta > 0 ? delta * 0.1 : 1
+                      const yAxisDomain = delta === 0
+                        ? [Math.max(0, minPrice - 1), maxPrice + 1]
+                        : [Math.max(0, Number((minPrice - padding).toFixed(2))), Number((maxPrice + padding).toFixed(2))]
+                      return (
+                        <AreaChart data={priceHistory}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                          <XAxis
+                            type="number"
+                            dataKey="ts"
+                            domain={["dataMin", "dataMax"]}
+                            stroke="var(--color-muted-foreground)"
+                            tickFormatter={(ts: number) => timeframe === "1D"
+                              ? new Date(ts).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
+                              : new Date(ts).toLocaleDateString("ar-EG")}
+                          />
+                          <YAxis
+                            stroke="var(--color-muted-foreground)"
+                            domain={yAxisDomain as any}
+                            tickFormatter={(value) => `${currency === "EGP" ? "" : "$"}${(currency === "EGP" ? (value * exchangeRate).toFixed(0) : Number(value).toFixed(0))}`}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "var(--color-card)",
+                              border: "1px solid var(--color-border)",
+                              borderRadius: "8px",
+                            }}
+                            formatter={(value) =>
+                              `${currency === "EGP" ? "ج.م " : "$"}${(Number(value) * (currency === "EGP" ? exchangeRate : 1)).toFixed(2)}`
+                            }
+                            labelFormatter={(ts: number) => timeframe === "1D"
+                              ? new Date(ts).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
+                              : new Date(ts).toLocaleDateString("ar-EG")}
+                          />
+                          <Area type="linear" dataKey="price" stroke="var(--color-primary)" fillOpacity={1} fill="url(#colorPrice)" />
+                        </AreaChart>
+                      )
+                    })()}
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-96 flex items-center justify-center text-muted-foreground">جاري تحميل البيانات...</div>
@@ -571,6 +784,41 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle>تفاصيل المشتريات</CardTitle>
             <CardDescription>جميع عمليات الشراء المسجلة</CardDescription>
+            <div className="mt-4 flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-muted-foreground">من</label>
+                <input
+                  type="date"
+                  value={filterStart}
+                  onChange={(e) => setFilterStart(e.target.value)}
+                  className="p-2 border rounded"
+                />
+                <label className="text-sm text-muted-foreground">إلى</label>
+                <input
+                  type="date"
+                  value={filterEnd}
+                  onChange={(e) => setFilterEnd(e.target.value)}
+                  className="p-2 border rounded"
+                />
+                {(filterStart || filterEnd) && (
+                  <Button
+                    variant="ghost"
+                    className="ml-2"
+                    onClick={() => {
+                      setFilterStart("")
+                      setFilterEnd("")
+                    }}
+                  >
+                    مسح الفلاتر
+                  </Button>
+                )}
+              </div>
+              <div>
+                <Button variant="outline" onClick={exportCsv} disabled={displayPurchases.length === 0}>
+                  تصدير CSV
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {purchases.length > 0 ? (
@@ -642,8 +890,8 @@ export default function Dashboard() {
                       </td>
                       <td className="py-3 px-4 text-primary text-lg">
                         {currency === "USD" 
-                          ? `$${(totalInvestment / exchangeRate).toFixed(2)}` 
-                          : `${totalInvestment.toFixed(2)} ج.م`}
+                          ? `$${(displayTotalInvestment / exchangeRate).toFixed(2)}` 
+                          : `${displayTotalInvestment.toFixed(2)} ج.م`}
                       </td>
                     </tr>
                   </tbody>
@@ -652,13 +900,26 @@ export default function Dashboard() {
             ) : (
               <div className="text-center py-12">
                 <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <p className="text-muted-foreground mb-4">لا توجد مشتريات حتى الآن</p>
-                <Link href="/add-purchase">
-                  <Button className="bg-primary hover:bg-primary/90">
-                    <Plus className="w-4 h-4 mr-2" />
-                    إضافة أول شراء
-                  </Button>
-                </Link>
+                <p className="text-muted-foreground mb-4">لا توجد مشتريات في النطاق المحدد</p>
+                <div className="flex items-center justify-center gap-2">
+                  <Link href="/add-purchase">
+                    <Button className="bg-primary hover:bg-primary/90">
+                      <Plus className="w-4 h-4 mr-2" />
+                      إضافة شراء
+                    </Button>
+                  </Link>
+                  {(filterStart || filterEnd) && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setFilterStart("")
+                        setFilterEnd("")
+                      }}
+                    >
+                      مسح الفلاتر
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
@@ -783,3 +1044,7 @@ export default function Dashboard() {
     </div>
   )
 }
+
+
+
+

@@ -62,6 +62,16 @@ export default function Analysis() {
   const [editFormData, setEditFormData] = useState<Partial<Purchase>>({})
   const router = useRouter()
   const [sessionUserId, setSessionUserId] = useState<string | null>(null)
+  
+  // حالة فلاتر التاريخ للعرض
+  const [filterStart, setFilterStart] = useState<string>("")
+  const [filterEnd, setFilterEnd] = useState<string>("")
+
+  // حالة مؤشر الذهب الحقيقي والفترة الزمنية
+  const [timeframe, setTimeframe] = useState<"day" | "week" | "month" | "3mo" | "year">("month")
+  const [goldHistory, setGoldHistory] = useState<{ date: string; priceUSD: number }[]>([])
+  const [loadingGold, setLoadingGold] = useState(false)
+  const [goldError, setGoldError] = useState<string | null>(null)
 
   // التأثير الأول: جلب سعر الذهب وسعر الصرف
   useEffect(() => {
@@ -79,10 +89,17 @@ export default function Analysis() {
         router.replace("/auth/sign-in")
         return
       }
-      await loadPurchases()
+      // لا تعتمد على الحالة هنا؛ سيحمل التأثير التالي البيانات بعد تثبيت sessionUserId
     }
     init()
   }, [])
+
+  // حمل البيانات عند توفر sessionUserId
+  useEffect(() => {
+    if (sessionUserId) {
+      loadPurchases()
+    }
+  }, [sessionUserId])
 
   const loadPurchases = async () => {
     if (!sessionUserId) return
@@ -106,6 +123,69 @@ export default function Analysis() {
       totalCost: Number(r.total_cost),
     }))
     setPurchases(mapped)
+  }
+
+  // المشتريات المعروضة حسب الفلتر
+  const displayPurchases = purchases.filter((p) => {
+    const d = p.date
+    const afterStart = filterStart ? d >= filterStart : true
+    const beforeEnd = filterEnd ? d <= filterEnd : true
+    return afterStart && beforeEnd
+  })
+
+  const displayTotalInvestment = displayPurchases.reduce((sum, p) => sum + p.totalCost, 0)
+
+  // جلب بيانات مؤشر الذهب التاريخية عند تغيير الفترة
+  useEffect(() => {
+    const fetchGoldHistory = async () => {
+      try {
+        setLoadingGold(true)
+        setGoldError(null)
+        const res = await fetch(`/api/gold-price/history?tf=${timeframe}`)
+        if (!res.ok) throw new Error(`فشل جلب بيانات الذهب: ${res.status}`)
+        const json = await res.json()
+        setGoldHistory(json.data || [])
+      } catch (err: any) {
+        console.error("Gold history error", err)
+        setGoldError(err?.message || "خطأ غير معروف")
+      } finally {
+        setLoadingGold(false)
+      }
+    }
+    fetchGoldHistory()
+  }, [timeframe])
+
+  const exportCsv = () => {
+    if (displayPurchases.length === 0) return
+    const header = [
+      "id",
+      "date",
+      "karat",
+      "weight",
+      "price_per_gram",
+      "manufacturing",
+      "other_expenses",
+      "total_cost",
+    ]
+    const rows = displayPurchases.map((p) => [
+      p.id,
+      p.date,
+      String(p.karat ?? 21),
+      p.weight.toFixed(2),
+      p.pricePerGram.toFixed(2),
+      (p.manufacturing ?? 0).toFixed(2),
+      (p.otherExpenses ?? 0).toFixed(2),
+      p.totalCost.toFixed(2),
+    ])
+    const csv = [header.join(","), ...rows.map((r) => r.join(","))].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    const today = new Date().toISOString().slice(0, 10)
+    a.download = `purchases-analysis-${today}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const fetchExchangeRate = async () => {
@@ -475,6 +555,41 @@ export default function Analysis() {
           <CardHeader className="bg-muted/30">
             <CardTitle className="text-xl font-bold">تفاصيل جميع مشترياتك</CardTitle>
             <CardDescription>عرض تفاصيل كل عملية شراء مع إمكانية التعديل أو الحذف</CardDescription>
+            <div className="mt-4 flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-muted-foreground">من</label>
+                <input
+                  type="date"
+                  value={filterStart}
+                  onChange={(e) => setFilterStart(e.target.value)}
+                  className="p-2 border rounded"
+                />
+                <label className="text-sm text-muted-foreground">إلى</label>
+                <input
+                  type="date"
+                  value={filterEnd}
+                  onChange={(e) => setFilterEnd(e.target.value)}
+                  className="p-2 border rounded"
+                />
+                {(filterStart || filterEnd) && (
+                  <Button
+                    variant="ghost"
+                    className="ml-2"
+                    onClick={() => {
+                      setFilterStart("")
+                      setFilterEnd("")
+                    }}
+                  >
+                    مسح الفلاتر
+                  </Button>
+                )}
+              </div>
+              <div>
+                <Button variant="outline" onClick={exportCsv} disabled={displayPurchases.length === 0}>
+                  تصدير CSV
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -492,14 +607,35 @@ export default function Analysis() {
                   </tr>
                 </thead>
                 <tbody>
-                  {purchases.length === 0 ? (
+                  {displayPurchases.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-muted-foreground">
-                        لا توجد مشتريات مسجلة بعد
+                      <td colSpan={8} className="text-center py-12">
+                        <div className="text-muted-foreground mb-4">
+                          {purchases.length === 0 ? "لا توجد مشتريات مسجلة بعد" : "لا توجد مشتريات في الفترة المحددة"}
+                        </div>
+                        <div className="flex items-center justify-center gap-2">
+                          <Link href="/add-purchase">
+                            <Button className="bg-primary hover:bg-primary/90">
+                              <Plus className="w-4 h-4 mr-2" />
+                              إضافة شراء
+                            </Button>
+                          </Link>
+                          {(filterStart || filterEnd) && (
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setFilterStart("")
+                                setFilterEnd("")
+                              }}
+                            >
+                              مسح الفلاتر
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ) : (
-                    purchases.map((purchase) => (
+                    displayPurchases.map((purchase) => (
                       <tr key={purchase.id} className="border-b border-border hover:bg-muted/20">
                         <td className="py-4 px-6">{purchase.date}</td>
                         <td className="py-4 px-6">{purchase.karat || 24}</td>
@@ -547,6 +683,19 @@ export default function Analysis() {
                         </td>
                       </tr>
                     ))
+                  )}
+                  {displayPurchases.length > 0 && (
+                    <tr className="border-t-2 border-border bg-primary/10 font-bold">
+                      <td colSpan={6} className="py-3 px-4 text-right text-primary">
+                        إجمالي التكلفة الإجمالية:
+                      </td>
+                      <td className="py-3 px-4 text-primary text-lg">
+                        {currency === "USD" 
+                          ? `$${(displayTotalInvestment / exchangeRate).toFixed(2)}` 
+                          : `${displayTotalInvestment.toFixed(2)} ج.م`}
+                      </td>
+                      <td className="py-3 px-4"></td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -633,47 +782,94 @@ export default function Analysis() {
 
               {/* Trend Tab */}
               <TabsContent value="trend" className="bg-card rounded-lg p-4 border border-border/30">
-                {purchasesByDate.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={400}>
-                    <LineChart
-                      data={purchasesByDate.reduce(
-                        (acc, item, index) => {
-                          const cumulativeCost = purchasesByDate.slice(0, index + 1).reduce((sum, p) => sum + p.cost, 0)
-                          acc.push({
-                            date: item.date,
-                            cumulativeCost,
-                          })
-                          return acc
-                        },
-                        [] as Array<{ date: string; cumulativeCost: number }>,
-                      )}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis dataKey="date" stroke="var(--color-muted-foreground)" />
-                      <YAxis stroke="var(--color-muted-foreground)" />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "var(--color-card)",
-                          border: "1px solid var(--color-border)",
-                          borderRadius: "8px",
-                        }}
-                        formatter={(value) => `${typeof value === 'number' ? value.toFixed(2) : value} ج.م`}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="cumulativeCost"
-                        stroke="var(--color-primary)"
-                        strokeWidth={2}
-                        dot={{ fill: "var(--color-primary)", r: 4 }}
-                        name="التكلفة التراكمية"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-96 flex items-center justify-center text-muted-foreground">
-                    لا توجد بيانات للعرض
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <span className="text-sm text-muted-foreground">الفترة:</span>
+                    <Button variant={timeframe === "day" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("day")}>يوم</Button>
+                    <Button variant={timeframe === "week" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("week")}>أسبوع</Button>
+                    <Button variant={timeframe === "month" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("month")}>شهر</Button>
+                    <Button variant={timeframe === "3mo" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("3mo")}>3 شهور</Button>
+                    <Button variant={timeframe === "year" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("year")}>سنة</Button>
                   </div>
-                )}
+                  {goldError && (
+                    <div className="text-red-600 text-sm mb-3">{goldError}</div>
+                  )}
+                  {loadingGold ? (
+                    <div className="h-96 flex items-center justify-center text-muted-foreground">جاري تحميل بيانات المؤشر...</div>
+                  ) : goldHistory.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={400}>
+                      {(() => {
+                        // تطبيع البيانات حسب الفترة الزمنية وإرجاع مخطط فئوي بسيط
+                        const chartData = (() => {
+                          if (timeframe === "day") {
+                            return goldHistory.map((d) => ({
+                              label: d.dateTime ? new Date(d.dateTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : d.date,
+                              price: currency === "USD" ? Number(d.priceUSD) : Number(d.priceUSD) * exchangeRate,
+                            }))
+                          }
+                          if (timeframe === "week") {
+                            const byDate: Record<string, { sum: number; count: number }> = {}
+                            for (const d of goldHistory) {
+                              const key = d.date
+                              if (!byDate[key]) byDate[key] = { sum: 0, count: 0 }
+                              byDate[key].sum += d.priceUSD
+                              byDate[key].count += 1
+                            }
+                            const entries = Object.entries(byDate)
+                              .sort((a, b) => a[0].localeCompare(b[0]))
+                              .map(([date, agg]) => ({
+                                label: date,
+                                price: currency === "USD" ? Number(agg.sum / agg.count) : Number(agg.sum / agg.count) * exchangeRate,
+                              }))
+                            return entries
+                          }
+                          if (timeframe === "month" || timeframe === "3mo") {
+                            return goldHistory
+                              .sort((a, b) => a.date.localeCompare(b.date))
+                              .map((d) => ({
+                                label: d.date,
+                                price: currency === "USD" ? Number(d.priceUSD) : Number(d.priceUSD) * exchangeRate,
+                              }))
+                          }
+                          const byMonth: Record<string, { sum: number; count: number }> = {}
+                          for (const d of goldHistory) {
+                            const monthKey = d.date.slice(0, 7)
+                            if (!byMonth[monthKey]) byMonth[monthKey] = { sum: 0, count: 0 }
+                            byMonth[monthKey].sum += d.priceUSD
+                            byMonth[monthKey].count += 1
+                          }
+                          return Object.entries(byMonth)
+                            .sort((a, b) => a[0].localeCompare(b[0]))
+                            .map(([m, agg]) => ({
+                              label: m,
+                              price: currency === "USD" ? Number(agg.sum / agg.count) : Number(agg.sum / agg.count) * exchangeRate,
+                            }))
+                        })()
+
+                        return (
+                          <LineChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                            <XAxis dataKey="label" stroke="var(--color-muted-foreground)" />
+                            <YAxis stroke="var(--color-muted-foreground)" />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: "var(--color-card)",
+                                border: "1px solid var(--color-border)",
+                                borderRadius: "8px",
+                              }}
+                              formatter={(value: any) => {
+                                const v = typeof value === 'number' ? value.toFixed(2) : value
+                                return currency === "USD" ? `$${v}` : `${v} ج.م`
+                              }}
+                            />
+                            <Legend />
+                            <Line type="monotone" dataKey="price" stroke="var(--color-primary)" strokeWidth={2} dot={{ r: 3 }} name={currency === "USD" ? "سعر الذهب (USD)" : "سعر الذهب (EGP)"} />
+                          </LineChart>
+                        )
+                      })()}
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="ه-96 flex items-center justify-center text-muted-foreground">لا توجد بيانات للعرض</div>
+                  )}
               </TabsContent>
             </Tabs>
           </CardContent>
@@ -800,3 +996,7 @@ export default function Analysis() {
     </div>
   )
 }
+
+// ...existing code...
+
+  // تم نقل useEffect الخاص بجلب بيانات الذهب داخل المكون لتصحيح الخطأ

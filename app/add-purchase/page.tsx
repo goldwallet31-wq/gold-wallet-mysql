@@ -150,7 +150,7 @@ export default function AddPurchase() {
 
       const { error: dbError } = await supabase.from("purchases").insert([
         {
-          id: newPurchase.id,
+          // id: newPurchase.id, // إزالة تمرير المعرف لأنه من نوع uuid ويُولّد تلقائيًا في القاعدة
           user_id: sessionUserId,
           date: newPurchase.date,
           karat: newPurchase.karat,
@@ -163,13 +163,16 @@ export default function AddPurchase() {
       ])
 
       if (dbError) {
+        setError(dbError.message || "حدث خطأ أثناء حفظ الشراء")
+        console.error("Supabase DB error:", dbError.message, dbError)
         throw dbError
       }
 
       router.push("/")
     } catch (err) {
-      setError("حدث خطأ أثناء حفظ الشراء")
-      console.error(err)
+      const message = (err as any)?.message || "حدث خطأ أثناء حفظ الشراء"
+      setError(message)
+      console.error("Supabase insert error:", (err as any)?.message ?? err)
     } finally {
       setLoading(false)
     }
