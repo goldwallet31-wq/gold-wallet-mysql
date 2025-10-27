@@ -825,7 +825,7 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            {purchases.length > 0 ? (
+            {displayPurchases.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -841,7 +841,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {purchases.map((purchase) => (
+                    {displayPurchases.map((purchase) => (
                       <tr key={purchase.id} className="border-b border-border/50 hover:bg-muted/50">
                         <td className="py-3 px-4 text-muted-foreground">{purchase.date}</td>
                         <td className="py-3 px-4 text-foreground font-medium">{purchase.karat || 21}</td>
@@ -1048,6 +1048,5 @@ export default function Dashboard() {
     </div>
   )
 }
-
 
 
