@@ -128,18 +128,19 @@ export default function AddPurchase() {
 
       const adjustedPrice = calculateAdjustedPrice(pricePerGram, karat, inputKarat)
       const goldCost = weight * adjustedPrice
-      const totalCostWithManufacturing = goldCost + manufacturing
+      const otherExpensesValue = Number.parseFloat(formData.otherExpenses) || 0
+      const totalCostWithAll = goldCost + manufacturing + otherExpensesValue
 
       const newPurchase = {
         id: Date.now().toString(),
         date: new Date(formData.date).toISOString().split('T')[0],
         weight,
         pricePerGram: adjustedPrice,
-        totalCost: totalCostWithManufacturing,
+        totalCost: totalCostWithAll,
         karat,
         priceInEGP: pricePerGram,
         manufacturing,
-        otherExpenses: Number.parseFloat(formData.otherExpenses) || 0
+        otherExpenses: otherExpensesValue
       }
 
       if (!sessionUserId) {
@@ -384,7 +385,7 @@ export default function AddPurchase() {
                     )}
                     <div className="border-t border-border pt-2 flex justify-between items-center">
                       <span className="text-foreground font-semibold">التكلفة الإجمالية:</span>
-                      <span className="font-bold text-lg text-primary">{(totalCost + Number(formData.otherExpenses || 0)).toFixed(2)} ج.م</span>
+                      <span className="font-bold text-lg text-primary">{totalCost.toFixed(2)} ج.م</span>
                     </div>
                   </div>
                 </div>
