@@ -435,9 +435,13 @@ export default function Dashboard() {
 
   // المشتريات المعروضة حسب الفلتر
   const displayPurchases = purchases.filter((p) => {
-    const d = p.date
-    const afterStart = filterStart ? d >= filterStart : true
-    const beforeEnd = filterEnd ? d <= filterEnd : true
+    const purchaseDate = new Date(p.date)
+    const startDate = filterStart ? new Date(filterStart) : null
+    const endDate = filterEnd ? new Date(filterEnd) : null
+    
+    const afterStart = startDate ? purchaseDate >= startDate : true
+    const beforeEnd = endDate ? purchaseDate <= endDate : true
+    
     return afterStart && beforeEnd
   })
 
