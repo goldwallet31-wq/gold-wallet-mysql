@@ -483,9 +483,9 @@ export default function Analysis() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="border-border/50 shadow-lg overflow-hidden">
             <CardHeader className="pb-3 bg-muted/20">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
@@ -551,7 +551,7 @@ export default function Analysis() {
         </div>
 
         {/* Purchase Details Table */}
-        <Card className="border-border/50 shadow-lg mb-8 overflow-hidden">
+        <Card className="border-border/50 shadow-lg mb-6 sm:mb-8 overflow-hidden">
           <CardHeader className="bg-muted/30">
             <CardTitle className="text-xl font-bold">تفاصيل جميع مشترياتك</CardTitle>
             <CardDescription>عرض تفاصيل كل عملية شراء مع إمكانية التعديل أو الحذف</CardDescription>

@@ -33,6 +33,9 @@ const KARAT_CONVERSION = {
 
 export default function AddPurchase() {
   const router = useRouter()
+  const supabaseConfigured = !!(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
     weight: "",
@@ -48,11 +51,24 @@ export default function AddPurchase() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: sessionRes } = await supabase.auth.getSession()
-      const uid = sessionRes?.session?.user?.id || null
-      setSessionUserId(uid)
-      if (!uid) {
-        router.replace("/auth/sign-in")
+      try {
+        if (!supabaseConfigured) {
+          setError("التهيئة غير مكتملة: يرجى إعداد مفاتيح Supabase في .env.local")
+          return
+        }
+        const { data: sessionRes, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError) {
+          console.error("Supabase session error:", sessionError.message)
+          setError(sessionError.message)
+        }
+        const uid = sessionRes?.session?.user?.id || null
+        setSessionUserId(uid)
+        if (!uid) {
+          router.replace("/auth/sign-in")
+        }
+      } catch (e: any) {
+        console.error("Init error:", e?.message ?? e)
+        setError(e?.message || "حدث خطأ أثناء التحقق من الجلسة")
       }
     }
     init()
@@ -108,6 +124,11 @@ export default function AddPurchase() {
     setLoading(true)
 
     try {
+      if (!supabaseConfigured) {
+        setError("التهيئة غير مكتملة: يرجى إعداد مفاتيح Supabase قبل الحفظ")
+        setLoading(false)
+        return
+      }
       const weight = Number.parseFloat(formData.weight)
       const pricePerGram = Number.parseFloat(formData.pricePerGram)
       const karat = Number.parseInt(formData.karat)
@@ -194,15 +215,15 @@ export default function AddPurchase() {
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
                   <span className="text-lg font-bold text-primary-foreground">🏆</span>
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground">محفظة الذهب</h1>
-                  <p className="text-sm text-muted-foreground">Gold Wallet</p>
+                  <h1 className="text-xl sm:text-2xl font-bold text-foreground">محفظة الذهب</h1>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Gold Wallet</p>
                 </div>
               </Link>
             </div>
@@ -210,17 +231,17 @@ export default function AddPurchase() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-sm sm:max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <Card className="border-border/50 shadow-lg">
           <CardHeader>
-            <CardTitle>إضافة شراء ذهب جديد</CardTitle>
-            <CardDescription>أدخل تفاصيل شرائك من الذهب</CardDescription>
+            <CardTitle className="text-lg sm:text-xl">إضافة شراء ذهب جديد</CardTitle>
+            <CardDescription className="text-sm">أدخل تفاصيل شرائك من الذهب</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               {/* Date Field */}
               <div className="space-y-2">
-                <Label htmlFor="date" className="text-foreground font-semibold">
+                <Label htmlFor="date" className="text-foreground font-semibold text-sm sm:text-base">
                   التاريخ
                 </Label>
                 <Input
@@ -229,13 +250,13 @@ export default function AddPurchase() {
                   name="date"
                   value={formData.date}
                   onChange={handleChange}
-                  className="bg-input border-border text-foreground"
+                  className="bg-input border-border text-foreground text-sm"
                 />
               </div>
 
               {/* Weight Field */}
               <div className="space-y-2">
-                <Label htmlFor="weight" className="text-foreground font-semibold">
+                <Label htmlFor="weight" className="text-foreground font-semibold text-sm sm:text-base">
                   الوزن (جرام)
                 </Label>
                 <Input
@@ -247,14 +268,14 @@ export default function AddPurchase() {
                   onChange={handleChange}
                   step="0.01"
                   min="0"
-                  className="bg-input border-border text-foreground"
+                  className="bg-input border-border text-foreground text-sm"
                 />
                 <p className="text-xs text-muted-foreground">أدخل وزن الذهب بالجرام</p>
               </div>
 
               {/* Karat Field */}
               <div className="space-y-2">
-                <Label htmlFor="karat" className="text-foreground font-semibold">
+                <Label htmlFor="karat" className="text-foreground font-semibold text-sm sm:text-base">
                   عيار الذهب المشترى
                 </Label>
                 <select
@@ -262,7 +283,7 @@ export default function AddPurchase() {
                   name="karat"
                   value={formData.karat}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="24">عيار 24 (نقي 100%)</option>
                   <option value="21">عيار 21 (87.5%)</option>
@@ -274,7 +295,7 @@ export default function AddPurchase() {
 
               {/* Input Karat Field */}
               <div className="space-y-2">
-                <Label htmlFor="inputKarat" className="text-foreground font-semibold">
+                <Label htmlFor="inputKarat" className="text-foreground font-semibold text-sm sm:text-base">
                   عيار السعر المدخل
                 </Label>
                 <select
@@ -282,7 +303,7 @@ export default function AddPurchase() {
                   name="inputKarat"
                   value={formData.inputKarat}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="24">عيار 24 (نقي 100%)</option>
                   <option value="21">عيار 21 (87.5%)</option>
@@ -294,7 +315,7 @@ export default function AddPurchase() {
 
               {/* Price Per Gram Field */}
               <div className="space-y-2">
-                <Label htmlFor="pricePerGram" className="text-foreground font-semibold">
+                <Label htmlFor="pricePerGram" className="text-foreground font-semibold text-sm sm:text-base">
                   سعر الجرام (جنيه مصري)
                 </Label>
                 <Input
@@ -306,13 +327,13 @@ export default function AddPurchase() {
                   onChange={handleChange}
                   step="0.01"
                   min="0"
-                  className="bg-input border-border text-foreground"
+                  className="bg-input border-border text-foreground text-sm"
                 />
                 <p className="text-xs text-muted-foreground">أدخل سعر الجرام الواحد بالجنيه المصري للعيار المحدد أعلاه</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="manufacturing" className="text-foreground font-semibold">
+                <Label htmlFor="manufacturing" className="text-foreground font-semibold text-sm sm:text-base">
                   المصنعية (جنيه مصري)
                 </Label>
                 <Input
@@ -324,13 +345,13 @@ export default function AddPurchase() {
                   onChange={handleChange}
                   step="0.01"
                   min="0"
-                  className="bg-input border-border text-foreground"
+                  className="bg-input border-border text-foreground text-sm"
                 />
                 <p className="text-xs text-muted-foreground">أدخل قيمة المصنعية (رسوم التصنيع والصياغة)</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="otherExpenses" className="text-foreground font-semibold">
+                <Label htmlFor="otherExpenses" className="text-foreground font-semibold text-sm sm:text-base">
                   مصروفات أخرى (جنيه مصري)
                 </Label>
                 <Input
@@ -342,50 +363,50 @@ export default function AddPurchase() {
                   onChange={handleChange}
                   step="0.01"
                   min="0"
-                  className="bg-input border-border text-foreground"
+                  className="bg-input border-border text-foreground text-sm"
                 />
                 <p className="text-xs text-muted-foreground">أدخل قيمة أي مصروفات إضافية أخرى</p>
               </div>
 
               {/* Summary Section */}
               {formData.weight && formData.pricePerGram && (
-                <div className="p-4 rounded-lg bg-muted/50 border border-border space-y-3">
+                <div className="p-3 sm:p-4 rounded-lg bg-muted/50 border border-border space-y-3">
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">الوزن الإجمالي:</span>
-                      <span className="font-semibold text-foreground">{weight.toFixed(2)} جرام</span>
+                      <span className="text-xs sm:text-sm text-muted-foreground">الوزن الإجمالي:</span>
+                      <span className="text-sm sm:text-base font-semibold text-foreground">{weight.toFixed(2)} جرام</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">السعر المدخل (عيار {inputKarat}):</span>
-                      <span className="font-semibold text-foreground">{pricePerGram.toFixed(2)} ج.م</span>
+                      <span className="text-xs sm:text-sm text-muted-foreground">السعر المدخل (عيار {inputKarat}):</span>
+                      <span className="text-sm sm:text-base font-semibold text-foreground">{pricePerGram.toFixed(2)} ج.م</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">السعر المعادل (عيار {karat}):</span>
-                      <span className="font-semibold text-foreground text-primary">{adjustedPrice.toFixed(2)} ج.م</span>
+                      <span className="text-xs sm:text-sm text-muted-foreground">السعر المعادل (عيار {karat}):</span>
+                      <span className="text-sm sm:text-base font-semibold text-foreground text-primary">{adjustedPrice.toFixed(2)} ج.م</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">تكلفة الذهب:</span>
-                      <span className="font-semibold text-foreground">{goldCost.toFixed(2)} ج.م</span>
+                      <span className="text-xs sm:text-sm text-muted-foreground">تكلفة الذهب:</span>
+                      <span className="text-sm sm:text-base font-semibold text-foreground">{goldCost.toFixed(2)} ج.م</span>
                     </div>
                     {manufacturing > 0 && (
                       <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">المصنعية:</span>
-                        <span className="font-semibold text-foreground text-accent">
+                        <span className="text-xs sm:text-sm text-muted-foreground">المصنعية:</span>
+                        <span className="text-sm sm:text-base font-semibold text-foreground text-accent">
                           {manufacturing.toFixed(2)} ج.م
                         </span>
                       </div>
                     )}
                     {Number(formData.otherExpenses) > 0 && (
                       <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">مصروفات أخرى:</span>
-                        <span className="font-semibold text-foreground text-accent">
+                        <span className="text-xs sm:text-sm text-muted-foreground">مصروفات أخرى:</span>
+                        <span className="text-sm sm:text-base font-semibold text-foreground text-accent">
                           {Number(formData.otherExpenses).toFixed(2)} ج.م
                         </span>
                       </div>
                     )}
                     <div className="border-t border-border pt-2 flex justify-between items-center">
-                      <span className="text-foreground font-semibold">التكلفة الإجمالية:</span>
-                      <span className="font-bold text-lg text-primary">{totalCost.toFixed(2)} ج.م</span>
+                      <span className="text-sm sm:text-base text-foreground font-semibold">التكلفة الإجمالية:</span>
+                      <span className="font-bold text-base sm:text-lg text-primary">{totalCost.toFixed(2)} ج.م</span>
                     </div>
                   </div>
                 </div>
@@ -399,13 +420,13 @@ export default function AddPurchase() {
               )}
 
               {/* Buttons */}
-              <div className="flex gap-3 pt-4">
-                <Button type="submit" disabled={loading} className="flex-1 bg-primary hover:bg-primary/90 gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4">
+                <Button type="submit" disabled={loading} className="flex-1 bg-primary hover:bg-primary/90 gap-2 text-sm">
                   {loading ? "جاري الحفظ..." : "حفظ الشراء"}
                   <ArrowRight className="w-4 h-4" />
                 </Button>
                 <Link href="/" className="flex-1">
-                  <Button type="button" variant="outline" className="w-full bg-transparent">
+                  <Button type="button" variant="outline" className="w-full bg-transparent text-sm">
                     إلغاء
                   </Button>
                 </Link>

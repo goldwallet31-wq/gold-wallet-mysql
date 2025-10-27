@@ -540,23 +540,27 @@ export default function Dashboard() {
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            {/* Logo and Title */}
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
                 <span className="text-lg font-bold text-primary-foreground">🏆</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">محفظة الذهب</h1>
-                <p className="text-sm text-muted-foreground">Gold Wallet</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">محفظة الذهب</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">Gold Wallet</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex gap-2">
+            
+            {/* Controls */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              {/* Currency Toggle */}
+              <div className="flex gap-2 justify-center sm:justify-start">
                 <Button
                   variant={currency === "USD" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setCurrency("USD")}
-                  className="text-xs"
+                  className="text-xs flex-1 sm:flex-none"
                 >
                   USD
                 </Button>
@@ -564,22 +568,26 @@ export default function Dashboard() {
                   variant={currency === "EGP" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setCurrency("EGP")}
-                  className="text-xs"
+                  className="text-xs flex-1 sm:flex-none"
                 >
                   EGP
                 </Button>
               </div>
-              <div className="flex gap-2">
-                <Link href="/analysis">
-                  <Button variant="outline" className="gap-2 border-primary/20 text-primary">
+              
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Link href="/analysis" className="w-full sm:w-auto">
+                  <Button variant="outline" className="gap-2 border-primary/20 text-primary w-full sm:w-auto">
                     <BarChart3 className="w-4 h-4" />
-                    تحليل المشتريات
+                    <span className="hidden sm:inline">تحليل المشتريات</span>
+                    <span className="sm:hidden">تحليل</span>
                   </Button>
                 </Link>
-                <Link href="/add-purchase">
-                  <Button className="gap-2 bg-primary hover:bg-primary/90">
+                <Link href="/add-purchase" className="w-full sm:w-auto">
+                  <Button className="gap-2 bg-primary hover:bg-primary/90 w-full sm:w-auto">
                     <Plus className="w-4 h-4" />
-                    إضافة شراء
+                    <span className="hidden sm:inline">إضافة شراء</span>
+                    <span className="sm:hidden">إضافة</span>
                   </Button>
                 </Link>
                 <Button
@@ -588,8 +596,10 @@ export default function Dashboard() {
                     await supabase.auth.signOut()
                     router.replace("/auth/sign-in")
                   }}
+                  className="w-full sm:w-auto"
                 >
-                  تسجيل الخروج
+                  <span className="hidden sm:inline">تسجيل الخروج</span>
+                  <span className="sm:hidden">خروج</span>
                 </Button>
               </div>
             </div>
@@ -597,9 +607,9 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Current Price Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="border-border/50 shadow-lg">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">سعر الذهب الحالي</CardTitle>
@@ -676,9 +686,9 @@ export default function Dashboard() {
         </div>
 
         {/* Karat Prices Section */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold text-foreground mb-4">أسعار الذهب بالعيارات المختلفة</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-lg sm:text-xl font-bold text-foreground mb-3 sm:mb-4">أسعار الذهب بالعيارات المختلفة</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* 24 Karat Gold */}
             <Card className="border-border/50 shadow-lg bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20">
               <CardHeader className="pb-3">
@@ -767,27 +777,27 @@ export default function Dashboard() {
 
         {/* Tabs Section */}
         <Tabs defaultValue="chart" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="chart">المخطط البياني</TabsTrigger>
-            <TabsTrigger value="portfolio">المحفظة</TabsTrigger>
-            <TabsTrigger value="analysis">التحليل</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6">
+            <TabsTrigger value="chart" className="text-xs sm:text-sm">المخطط البياني</TabsTrigger>
+            <TabsTrigger value="portfolio" className="text-xs sm:text-sm">المحفظة</TabsTrigger>
+            <TabsTrigger value="analysis" className="text-xs sm:text-sm">التحليل</TabsTrigger>
           </TabsList>
 
           {/* Chart Tab */}
           <TabsContent value="chart">
             <Card className="border-border/50 shadow-lg">
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <CardTitle>مؤشر أسعار الذهب</CardTitle>
-                    <CardDescription>اختر الفترة الزمنية لعرض المؤشر</CardDescription>
+                    <CardTitle className="text-lg sm:text-xl">مؤشر أسعار الذهب</CardTitle>
+                    <CardDescription className="text-sm">اختر الفترة الزمنية لعرض المؤشر</CardDescription>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant={timeframe === "1D" ? "default" : "outline"} onClick={() => setTimeframe("1D")}>يوم</Button>
-                    <Button size="sm" variant={timeframe === "1W" ? "default" : "outline"} onClick={() => setTimeframe("1W")}>أسبوع</Button>
-                    <Button size="sm" variant={timeframe === "1M" ? "default" : "outline"} onClick={() => setTimeframe("1M")}>شهر</Button>
-                    <Button size="sm" variant={timeframe === "3M" ? "default" : "outline"} onClick={() => setTimeframe("3M")}>3 شهور</Button>
-                    <Button size="sm" variant={timeframe === "1Y" ? "default" : "outline"} onClick={() => setTimeframe("1Y")}>سنة</Button>
+                  <div className="flex flex-wrap gap-2 justify-center sm:justify-end">
+                    <Button size="sm" variant={timeframe === "1D" ? "default" : "outline"} onClick={() => setTimeframe("1D")} className="text-xs">يوم</Button>
+                    <Button size="sm" variant={timeframe === "1W" ? "default" : "outline"} onClick={() => setTimeframe("1W")} className="text-xs">أسبوع</Button>
+                    <Button size="sm" variant={timeframe === "1M" ? "default" : "outline"} onClick={() => setTimeframe("1M")} className="text-xs">شهر</Button>
+                    <Button size="sm" variant={timeframe === "3M" ? "default" : "outline"} onClick={() => setTimeframe("3M")} className="text-xs">3 شهور</Button>
+                    <Button size="sm" variant={timeframe === "1Y" ? "default" : "outline"} onClick={() => setTimeframe("1Y")} className="text-xs">سنة</Button>
                   </div>
                 </div>
               </CardHeader>
@@ -849,11 +859,11 @@ export default function Dashboard() {
           <TabsContent value="portfolio">
             <Card className="border-border/50 shadow-lg">
               <CardHeader>
-                <CardTitle>ملخص المحفظة</CardTitle>
-                <CardDescription>معلومات استثماراتك في الذهب</CardDescription>
+                <CardTitle className="text-lg sm:text-xl">ملخص المحفظة</CardTitle>
+                <CardDescription className="text-sm">معلومات استثماراتك في الذهب</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-4">
                     <div className="p-4 rounded-lg bg-muted/50">
                       <p className="text-sm text-muted-foreground mb-1">إجمالي الاستثمار</p>
@@ -895,41 +905,46 @@ export default function Dashboard() {
         </Tabs>
       
         {/* جدول تفاصيل المشتريات مع أزرار التعديل والحذف */}
-        <Card className="border-border/50 shadow-lg mt-8">
+        <Card className="border-border/50 shadow-lg mt-6 sm:mt-8">
           <CardHeader>
-            <CardTitle>تفاصيل المشتريات</CardTitle>
-            <CardDescription>جميع عمليات الشراء المسجلة</CardDescription>
-            <div className="mt-4 flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-muted-foreground">من</label>
-                <input
-                  type="date"
-                  value={filterStart}
-                  onChange={(e) => setFilterStart(e.target.value)}
-                  className="p-2 border rounded"
-                />
-                <label className="text-sm text-muted-foreground">إلى</label>
-                <input
-                  type="date"
-                  value={filterEnd}
-                  onChange={(e) => setFilterEnd(e.target.value)}
-                  className="p-2 border rounded"
-                />
+            <CardTitle className="text-lg sm:text-xl">تفاصيل المشتريات</CardTitle>
+            <CardDescription className="text-sm">جميع عمليات الشراء المسجلة</CardDescription>
+            <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground whitespace-nowrap">من</label>
+                  <input
+                    type="date"
+                    value={filterStart}
+                    onChange={(e) => setFilterStart(e.target.value)}
+                    className="p-2 border rounded text-sm flex-1 sm:flex-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground whitespace-nowrap">إلى</label>
+                  <input
+                    type="date"
+                    value={filterEnd}
+                    onChange={(e) => setFilterEnd(e.target.value)}
+                    className="p-2 border rounded text-sm flex-1 sm:flex-none"
+                  />
+                </div>
                 {(filterStart || filterEnd) && (
                   <Button
                     variant="ghost"
-                    className="ml-2"
+                    size="sm"
                     onClick={() => {
                       setFilterStart("")
                       setFilterEnd("")
                     }}
+                    className="text-xs"
                   >
                     مسح الفلاتر
                   </Button>
                 )}
               </div>
-              <div>
-                <Button variant="outline" onClick={exportCsv} disabled={displayPurchases.length === 0}>
+              <div className="flex justify-center sm:justify-start lg:justify-end">
+                <Button variant="outline" size="sm" onClick={exportCsv} disabled={displayPurchases.length === 0} className="text-xs">
                   تصدير CSV
                 </Button>
               </div>
@@ -938,76 +953,82 @@ export default function Dashboard() {
           <CardContent>
             {displayPurchases.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-xs sm:text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-right py-3 px-4 font-semibold text-foreground">التاريخ</th>
-                      <th className="text-right py-3 px-4 font-semibold text-foreground">العيار</th>
-                      <th className="text-right py-3 px-4 font-semibold text-foreground">الوزن (جرام)</th>
-                      <th className="text-right py-3 px-4 font-semibold text-foreground">السعر/جرام</th>
-                      <th className="text-right py-3 px-4 font-semibold text-foreground">المصنعية</th>
-                      <th className="text-right py-3 px-4 font-semibold text-foreground">مصروفات أخرى</th>
-                      <th className="text-right py-3 px-4 font-semibold text-foreground">التكلفة الإجمالية</th>
-                      <th className="text-right py-3 px-4 font-semibold text-foreground">الإجراءات</th>
+                      <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-semibold text-foreground">التاريخ</th>
+                      <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-semibold text-foreground">العيار</th>
+                      <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-semibold text-foreground">الوزن</th>
+                      <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-semibold text-foreground hidden sm:table-cell">السعر/جرام</th>
+                      <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-semibold text-foreground hidden md:table-cell">المصنعية</th>
+                      <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-semibold text-foreground hidden md:table-cell">مصروفات أخرى</th>
+                      <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-semibold text-foreground">التكلفة</th>
+                      <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-semibold text-foreground">الإجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
                     {displayPurchases.map((purchase) => (
                       <tr key={purchase.id} className="border-b border-border/50 hover:bg-muted/50">
-                        <td className="py-3 px-4 text-muted-foreground">{purchase.date}</td>
-                        <td className="py-3 px-4 text-foreground font-medium">{purchase.karat || 21}</td>
-                        <td className="py-3 px-4 text-foreground font-medium">{purchase.weight.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-foreground">
+                        <td className="py-2 px-2 sm:py-3 sm:px-4 text-muted-foreground text-xs sm:text-sm">{purchase.date}</td>
+                        <td className="py-2 px-2 sm:py-3 sm:px-4 text-foreground font-medium">{purchase.karat || 21}</td>
+                        <td className="py-2 px-2 sm:py-3 sm:px-4 text-foreground font-medium">{purchase.weight.toFixed(2)}</td>
+                        <td className="py-2 px-2 sm:py-3 sm:px-4 text-foreground hidden sm:table-cell">
                           {currency === "USD" 
                             ? `$${(purchase.pricePerGram / exchangeRate).toFixed(2)}` 
                             : `${purchase.pricePerGram.toFixed(2)} ج.م`}
                         </td>
-                        <td className="py-3 px-4 text-foreground text-accent font-medium">
+                        <td className="py-2 px-2 sm:py-3 sm:px-4 text-foreground text-accent font-medium hidden md:table-cell">
                           {currency === "USD" 
                             ? `$${((purchase.manufacturing || 0) / exchangeRate).toFixed(2)}` 
                             : `${(purchase.manufacturing || 0).toFixed(2)} ج.م`}
                         </td>
-                        <td className="py-3 px-4 text-foreground font-medium">
+                        <td className="py-2 px-2 sm:py-3 sm:px-4 text-foreground font-medium hidden md:table-cell">
                           {currency === "USD" 
                             ? `$${((purchase.otherExpenses || 0) / exchangeRate).toFixed(2)}` 
                             : `${(purchase.otherExpenses || 0).toFixed(2)} ج.م`}
                         </td>
-                        <td className="py-3 px-4 text-foreground font-semibold">
+                        <td className="py-2 px-2 sm:py-3 sm:px-4 text-foreground font-semibold">
                           {currency === "USD" 
                             ? `$${(purchase.totalCost / exchangeRate).toFixed(2)}` 
                             : `${purchase.totalCost.toFixed(2)} ج.م`}
                         </td>
-                        <td className="py-3 px-4 flex items-center space-x-2 rtl:space-x-reverse">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditPurchase(purchase)}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          >
-                            <Pencil className="h-4 w-4" />
-                            <span className="sr-only">تعديل</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeletePurchase(purchase.id)}
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">حذف</span>
-                          </Button>
+                        <td className="py-2 px-2 sm:py-3 sm:px-4">
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditPurchase(purchase)}
+                              className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground"
+                            >
+                              <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
+                              <span className="sr-only">تعديل</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeletePurchase(purchase.id)}
+                              className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                              <span className="sr-only">حذف</span>
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                     <tr className="border-t-2 border-border bg-primary/10 font-bold">
-                      <td colSpan={6} className="py-3 px-4 text-right text-primary">
+                      <td colSpan={4} className="py-2 px-2 sm:py-3 sm:px-4 text-right text-primary text-xs sm:text-sm md:hidden">
+                        إجمالي التكلفة:
+                      </td>
+                      <td colSpan={6} className="py-2 px-2 sm:py-3 sm:px-4 text-right text-primary text-xs sm:text-sm hidden md:table-cell">
                         إجمالي التكلفة الإجمالية:
                       </td>
-                      <td className="py-3 px-4 text-primary text-lg">
+                      <td className="py-2 px-2 sm:py-3 sm:px-4 text-primary text-sm sm:text-lg">
                         {currency === "USD" 
                           ? `$${(displayTotalInvestment / exchangeRate).toFixed(2)}` 
                           : `${displayTotalInvestment.toFixed(2)} ج.م`}
                       </td>
+                      <td className="py-2 px-2 sm:py-3 sm:px-4"></td>
                     </tr>
                   </tbody>
                 </table>
@@ -1159,7 +1180,6 @@ export default function Dashboard() {
     </div>
   )
 }
-
 
 
 

@@ -40,24 +40,24 @@ export default function ResetPasswordRequest() {
   }
 
   return (
-    <main className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <main className="max-w-sm sm:max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">
       <Card className="border-border/50 shadow-lg">
-        <CardHeader>
-          <CardTitle>إعادة تعيين كلمة المرور</CardTitle>
-          <CardDescription>أدخل بريدك الإلكتروني لإرسال رابط إعادة التعيين</CardDescription>
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-lg sm:text-xl">إعادة تعيين كلمة المرور</CardTitle>
+          <CardDescription className="text-sm">أدخل بريدك الإلكتروني لإرسال رابط إعادة التعيين</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             <div>
-              <label className="block mb-1">البريد الإلكتروني</label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <label className="block mb-1 text-sm sm:text-base">البريد الإلكتروني</label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="text-sm" />
             </div>
             {error && <p className="text-red-600 text-sm">{error}</p>}
             {message && <p className="text-green-600 text-sm">{message}</p>}
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading} className="w-full text-sm">
               {loading ? "جاري الإرسال..." : "إرسال رابط إعادة التعيين"}
             </Button>
-            <div className="text-sm mt-3">
+            <div className="text-xs sm:text-sm mt-3">
               <Link href="/auth/sign-in" className="text-primary">عودة لتسجيل الدخول</Link>
             </div>
           </form>

@@ -42,28 +42,28 @@ export default function UpdatePassword() {
   }
 
   return (
-    <main className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <main className="max-w-sm sm:max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">
       <Card className="border-border/50 shadow-lg">
-        <CardHeader>
-          <CardTitle>تعيين كلمة مرور جديدة</CardTitle>
-          <CardDescription>أدخل كلمة المرور الجديدة بعد فتح رابط البريد</CardDescription>
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-lg sm:text-xl">تعيين كلمة مرور جديدة</CardTitle>
+          <CardDescription className="text-sm">أدخل كلمة المرور الجديدة بعد فتح رابط البريد</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             <div>
-              <label className="block mb-1">كلمة المرور الجديدة</label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <label className="block mb-1 text-sm sm:text-base">كلمة المرور الجديدة</label>
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="text-sm" />
             </div>
             <div>
-              <label className="block mb-1">تأكيد كلمة المرور</label>
-              <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+              <label className="block mb-1 text-sm sm:text-base">تأكيد كلمة المرور</label>
+              <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required className="text-sm" />
             </div>
             {error && <p className="text-red-600 text-sm">{error}</p>}
             {message && <p className="text-green-600 text-sm">{message}</p>}
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading} className="w-full text-sm">
               {loading ? "جاري التحديث..." : "تحديث كلمة المرور"}
             </Button>
-            <div className="text-sm mt-3">
+            <div className="text-xs sm:text-sm mt-3">
               <Link href="/auth/sign-in" className="text-primary">عودة لتسجيل الدخول</Link>
             </div>
           </form>

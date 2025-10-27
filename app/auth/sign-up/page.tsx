@@ -49,32 +49,32 @@ export default function SignUp() {
   }
 
   return (
-    <main className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <main className="max-w-sm sm:max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">
       <Card className="border-border/50 shadow-lg">
         <CardHeader>
-          <CardTitle>إنشاء حساب جديد</CardTitle>
-          <CardDescription>سجّل باستخدام بريد إلكتروني وكلمة مرور</CardDescription>
+          <CardTitle className="text-lg sm:text-xl">إنشاء حساب جديد</CardTitle>
+          <CardDescription className="text-sm">سجّل باستخدام بريد إلكتروني وكلمة مرور</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             <div>
-              <label className="block mb-1">البريد الإلكتروني</label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <label className="block mb-1 text-sm sm:text-base">البريد الإلكتروني</label>
+              <Input className="text-sm" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div>
-              <label className="block mb-1">كلمة المرور</label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <label className="block mb-1 text-sm sm:text-base">كلمة المرور</label>
+              <Input className="text-sm" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
             <div>
-              <label className="block mb-1">تأكيد كلمة المرور</label>
-              <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+              <label className="block mb-1 text-sm sm:text-base">تأكيد كلمة المرور</label>
+              <Input className="text-sm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
             </div>
             {error && <p className="text-red-600 text-sm">{error}</p>}
             {message && <p className="text-green-600 text-sm">{message}</p>}
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading} className="w-full text-sm">
               {loading ? "جاري التسجيل..." : "تسجيل"}
             </Button>
-            <div className="text-sm mt-3">
+            <div className="text-xs sm:text-sm mt-3">
               لديك حساب؟ <Link href="/auth/sign-in" className="text-primary">تسجيل الدخول</Link>
             </div>
           </form>
