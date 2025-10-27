@@ -1,38 +1,39 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 
-export default function SignIn() {
+export default function ResetPasswordRequest() {
   const router = useRouter()
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-
-    if (!email || !password) {
-      setError("جميع الحقول مطلوبة")
+    setMessage(null)
+    if (!email) {
+      setError("يرجى إدخال البريد الإلكتروني")
       return
     }
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${siteUrl}/auth/update-password`,
       })
       if (error) throw error
-      router.replace("/")
+      setMessage("تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني. يرجى التحقق من بريدك.")
     } catch (err: any) {
-      setError(err?.message || "حدث خطأ أثناء تسجيل الدخول")
+      setError(err?.message || "حدث خطأ أثناء طلب إعادة التعيين")
     } finally {
       setLoading(false)
     }
@@ -42,8 +43,8 @@ export default function SignIn() {
     <main className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <Card className="border-border/50 shadow-lg">
         <CardHeader>
-          <CardTitle>تسجيل الدخول</CardTitle>
-          <CardDescription>ادخل بريدك الإلكتروني وكلمة المرور</CardDescription>
+          <CardTitle>إعادة تعيين كلمة المرور</CardTitle>
+          <CardDescription>أدخل بريدك الإلكتروني لإرسال رابط إعادة التعيين</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -51,17 +52,13 @@ export default function SignIn() {
               <label className="block mb-1">البريد الإلكتروني</label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
-            <div>
-              <label className="block mb-1">كلمة المرور</label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
             {error && <p className="text-red-600 text-sm">{error}</p>}
+            {message && <p className="text-green-600 text-sm">{message}</p>}
             <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "جاري الدخول..." : "دخول"}
+              {loading ? "جاري الإرسال..." : "إرسال رابط إعادة التعيين"}
             </Button>
-            <div className="text-sm mt-3 flex items-center justify-between">
-              ليس لديك حساب؟ <Link href="/auth/sign-up" className="text-primary">إنشاء حساب</Link>
-              <Link href="/auth/reset-password" className="text-primary">نسيت كلمة المرور؟</Link>
+            <div className="text-sm mt-3">
+              <Link href="/auth/sign-in" className="text-primary">عودة لتسجيل الدخول</Link>
             </div>
           </form>
         </CardContent>
