@@ -63,6 +63,27 @@ export default function Dashboard() {
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
 
+  // حساب أسعار الذهب للعيارات المختلفة
+  const calculateKaratPrices = (ouncePrice: number) => {
+    if (!ouncePrice || ouncePrice <= 0) return { karat24: 0, karat21: 0, karat18: 0 }
+    
+    // تحويل سعر الأونصة إلى سعر الجرام للذهب الخالص (عيار 24)
+    const pureGoldPricePerGram = ouncePrice / 31.1035
+    
+    // حساب أسعار العيارات المختلفة
+    const karat24 = pureGoldPricePerGram // 100% ذهب خالص
+    const karat21 = pureGoldPricePerGram * 0.875 // 87.5% ذهب خالص
+    const karat18 = pureGoldPricePerGram * 0.75 // 75% ذهب خالص
+    
+    return {
+      karat24: Math.round(karat24 * 100) / 100,
+      karat21: Math.round(karat21 * 100) / 100,
+      karat18: Math.round(karat18 * 100) / 100
+    }
+  }
+
+  const karatPrices = calculateKaratPrices(goldPrice?.price || 0)
+
   const TIMEFRAMES: Record<typeof timeframe, number> = {
     "1D": 24 * 60 * 60 * 1000,
     "1W": 7 * 24 * 60 * 60 * 1000,
@@ -654,6 +675,96 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        {/* Karat Prices Section */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-foreground mb-4">أسعار الذهب بالعيارات المختلفة</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* 24 Karat Gold */}
+            <Card className="border-border/50 shadow-lg bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-yellow-700 dark:text-yellow-300 flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                  عيار 24 (ذهب خالص)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading && !goldPrice ? (
+                  <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-300 animate-pulse">جاري التحميل...</div>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
+                      {currency === "EGP" ? "ج.م " : "$"}
+                      {currency === "EGP" ? (karatPrices.karat24 * exchangeRate).toFixed(2) : karatPrices.karat24.toFixed(2)}
+                    </div>
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">لكل جرام</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 21 Karat Gold */}
+            <Card className="border-border/50 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300 flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                  عيار 21
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading && !goldPrice ? (
+                  <div className="text-2xl font-bold text-orange-700 dark:text-orange-300 animate-pulse">جاري التحميل...</div>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                      {currency === "EGP" ? "ج.م " : "$"}
+                      {currency === "EGP" ? (karatPrices.karat21 * exchangeRate).toFixed(2) : karatPrices.karat21.toFixed(2)}
+                    </div>
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">لكل جرام</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 18 Karat Gold */}
+            <Card className="border-border/50 shadow-lg bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                  عيار 18
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading && !goldPrice ? (
+                  <div className="text-2xl font-bold text-amber-700 dark:text-amber-300 animate-pulse">جاري التحميل...</div>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+                      {currency === "EGP" ? "ج.م " : "$"}
+                      {currency === "EGP" ? (karatPrices.karat18 * exchangeRate).toFixed(2) : karatPrices.karat18.toFixed(2)}
+                    </div>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">لكل جرام</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Last Update Time */}
+          {goldPrice?.timestamp && (
+            <div className="mt-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                آخر تحديث: {new Date(goldPrice.timestamp).toLocaleString('ar-EG', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Tabs Section */}
         <Tabs defaultValue="chart" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-6">
@@ -1048,5 +1159,11 @@ export default function Dashboard() {
     </div>
   )
 }
+
+
+
+
+
+
 
 
