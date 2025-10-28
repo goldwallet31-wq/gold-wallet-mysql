@@ -694,10 +694,10 @@ export default function Analysis() {
                 </thead>
                 <tbody>
                   {displayPurchases.map((purchase, index) => {
-                    const analysis = purchaseAnalysisData.find(p => p.date === purchase.date) || {
-                      profit: 0,
-                      profitPercent: 0
-                    }
+                    const costUSD = (purchase.totalCost || 0) / exchangeRate
+                    const valueUSD = ((purchase.weight || 0) * (goldPrice?.price || 0)) / 31.1035
+                    const profit = valueUSD - costUSD
+                    const profitPercent = costUSD > 0 ? (profit / costUSD) * 100 : 0
                     return (
                       <tr key={purchase.id} className="border-b border-border/30 hover:bg-gradient-to-r hover:from-muted/20 hover:to-transparent transition-all duration-200">
                         <td className="p-4 font-medium">{purchase.date}</td>
@@ -710,15 +710,15 @@ export default function Analysis() {
                         <td className="p-4 font-medium">{formatPrice(purchase.pricePerGram / exchangeRate)}</td>
                         <td className="p-4">{formatPrice((purchase.manufacturing || 0) / exchangeRate)}</td>
                         <td className="p-4 font-bold text-lg">{formatCurrency(purchase.totalCost / exchangeRate)}</td>
-                        <td className={`p-4 font-bold ${analysis.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <td className={`p-4 font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           <div className="flex flex-col">
                             <span className="text-lg">
-                              {analysis.profit >= 0 ? '+' : ''}{formatCurrency(analysis.profit)}
+                              {profit >= 0 ? '+' : ''}{formatCurrency(profit)}
                             </span>
-                            <span className={`text-xs px-2 py-1 rounded-full ${analysis.profit >= 0 
+                            <span className={`text-xs px-2 py-1 rounded-full ${profit >= 0 
                               ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
                               : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}`}>
-                              ({analysis.profit >= 0 ? '+' : ''}{analysis.profitPercent.toFixed(1)}%)
+                              ({profit >= 0 ? '+' : ''}{profitPercent.toFixed(1)}%)
                             </span>
                           </div>
                         </td>
@@ -745,6 +745,25 @@ export default function Analysis() {
                       </tr>
                     )
                   })}
+                   {/* صف المجاميع */}
+                   {displayPurchases.length > 0 && (
+                     <tr className="border-t-2 border-primary/30 bg-muted/30 font-bold">
+                       <td className="p-4 text-primary">المجموع</td>
+                       <td className="p-4">-</td>
+                       <td className="p-4">{displayPurchases.reduce((sum, p) => sum + (p.weight || 0), 0).toFixed(2)} جم</td>
+                       <td className="p-4">-</td>
+                       <td className="p-4">{formatPrice(displayPurchases.reduce((sum, p) => sum + (p.manufacturing || 0), 0) / exchangeRate)}</td>
+                       <td className="p-4 text-lg">{formatCurrency(displayPurchases.reduce((sum, p) => sum + (p.totalCost || 0), 0) / exchangeRate)}</td>
+                       <td className="p-4">
+                         {formatCurrency(displayPurchases.reduce((sum, p) => {
+                           const costUSD = (p.totalCost || 0) / exchangeRate
+                           const valueUSD = ((p.weight || 0) * (goldPrice?.price || 0)) / 31.1035
+                           return sum + (valueUSD - costUSD)
+                         }, 0))}
+                       </td>
+                       <td className="p-4">-</td>
+                     </tr>
+                   )}
                 </tbody>
               </table>
             </div>
