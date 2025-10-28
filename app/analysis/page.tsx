@@ -18,8 +18,10 @@ import {
   PieChart,
   Pie,
   Cell,
+  AreaChart,
+  Area,
 } from "recharts"
-import { DollarSign, Hammer, TrendingUp, ArrowUpRight, ArrowDownRight, Pencil, Plus, Trash2 } from "lucide-react"
+import { DollarSign, Hammer, TrendingUp, ArrowUpRight, ArrowDownRight, Pencil, Plus, Trash2, Activity, BarChart3, PieChart as PieChartIcon } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -347,6 +349,46 @@ export default function Analysis() {
     return value.toFixed(2)
   }
 
+  // تحليلات متقدمة وبيانات الأداء للرسوم البيانية
+  const currentGoldPricePerGramUSD = (goldPrice?.price || 0) / 31.1035
+  const averagePurchasePriceUSD = averagePricePerGram / exchangeRate
+
+  const purchaseAnalysisData = purchases
+    .map((p) => {
+      const costUSD = (p.totalCost || 0) / exchangeRate
+      const valueUSD = ((p.weight || 0) * (goldPrice?.price || 0)) / 31.1035
+      const profit = valueUSD - costUSD
+      const profitPercent = costUSD > 0 ? (profit / costUSD) * 100 : 0
+      const purchasePriceUSD = (p.pricePerGram || 0) / exchangeRate
+      return {
+        date: p.date,
+        profit,
+        profitPercent,
+        currentGoldPriceUSD: currentGoldPricePerGramUSD,
+        purchasePriceUSD,
+      }
+    })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+  const analyticsMetrics = {
+    averagePurchasePrice: isFinite(averagePurchasePriceUSD) ? averagePurchasePriceUSD : 0,
+    currentGoldPricePerGram: isFinite(currentGoldPricePerGramUSD) ? currentGoldPricePerGramUSD : 0,
+    priceAppreciation:
+      averagePurchasePriceUSD > 0
+        ? ((currentGoldPricePerGramUSD - averagePurchasePriceUSD) / averagePurchasePriceUSD) * 100
+        : 0,
+    bestPerformingPurchase:
+      purchaseAnalysisData.length > 0
+        ? purchaseAnalysisData.reduce((best, cur) => (cur.profitPercent > (best?.profitPercent ?? -Infinity) ? cur : best),
+            purchaseAnalysisData[0])
+        : undefined,
+    worstPerformingPurchase:
+      purchaseAnalysisData.length > 0
+        ? purchaseAnalysisData.reduce((worst, cur) => (cur.profitPercent < (worst?.profitPercent ?? Infinity) ? cur : worst),
+            purchaseAnalysisData[0])
+        : undefined,
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
       {/* Edit Purchase Dialog */}
@@ -486,106 +528,150 @@ export default function Analysis() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <Card className="border-border/50 shadow-lg overflow-hidden">
-            <CardHeader className="pb-3 bg-muted/20">
+          <Card className="border-border/50 shadow-lg overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
-                <DollarSign className="h-4 w-4 mr-2 text-primary" />
+                <DollarSign className="h-4 w-4 mr-2 text-blue-600" />
                 إجمالي الاستثمار
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-primary">{formatCurrency(totalInvestmentInUSD)}</div>
+              <div className="text-3xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(totalInvestmentInUSD)}</div>
               <p className="text-xs text-muted-foreground mt-1">{purchases.length} عملية شراء</p>
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 shadow-lg overflow-hidden">
-            <CardHeader className="pb-3 bg-muted/20">
+          <Card className="border-border/50 shadow-lg overflow-hidden bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
                 <Hammer className="h-4 w-4 mr-2 text-amber-600" />
-                إجمالي المصنعية
+                المصنعية
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-amber-600">{formatCurrency(totalManufacturingInUSD)}</div>
-              <p className="text-xs text-muted-foreground mt-1">رسوم التصنيع والصياغة</p>
+              <div className="text-3xl font-bold text-amber-700 dark:text-amber-300">{formatCurrency(totalManufacturingInUSD)}</div>
+              <p className="text-xs text-muted-foreground mt-1">{((totalManufacturingInUSD / totalInvestmentInUSD) * 100).toFixed(1)}% من الإجمالي</p>
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 shadow-lg overflow-hidden">
-            <CardHeader className="pb-3 bg-muted/20">
+          <Card className="border-border/50 shadow-lg overflow-hidden bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
-                <TrendingUp className="h-4 w-4 mr-2 text-blue-600" />
+                <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
                 القيمة الحالية
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{formatCurrency(currentValue)}</div>
-              <p className="text-xs text-muted-foreground mt-1">بسعر السوق الحالي</p>
+              <div className="text-3xl font-bold text-green-700 dark:text-green-300">{formatCurrency(currentValue)}</div>
+              <p className="text-xs text-muted-foreground mt-1">{totalGoldWeight.toFixed(2)} جرام</p>
             </CardContent>
           </Card>
 
-          <Card
-            className={`border-border/50 shadow-lg overflow-hidden ${profitLoss >= 0 ? "bg-green-50 dark:bg-green-900/10" : "bg-red-50 dark:bg-red-900/10"}`}
-          >
-            <CardHeader className="pb-3 bg-muted/20">
+          <Card className={`border-border/50 shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 ${profitLoss >= 0 
+            ? 'bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900' 
+            : 'bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900'}`}>
+            <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
-                {profitLoss >= 0 ? 
-                  <ArrowUpRight className="h-4 w-4 mr-2 text-green-600" /> : 
+                {profitLoss >= 0 ? (
+                  <ArrowUpRight className="h-4 w-4 mr-2 text-emerald-600" />
+                ) : (
                   <ArrowDownRight className="h-4 w-4 mr-2 text-red-600" />
-                }
+                )}
                 الربح/الخسارة
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div
-                className={`text-3xl font-bold ${profitLoss >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-              >
-                {formatCurrency(profitLoss)}
+              <div className={`text-3xl font-bold ${profitLoss >= 0 
+                ? 'text-emerald-700 dark:text-emerald-300' 
+                : 'text-red-700 dark:text-red-300'}`}>
+                {profitLoss >= 0 ? '+' : ''}{formatCurrency(profitLoss)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {profitLoss >= 0 ? "ربح" : "خسارة"} {Math.abs(profitLossPercent).toFixed(2)}%
+                {profitLoss >= 0 ? '+' : ''}{profitLossPercent.toFixed(2)}%
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Advanced Analytics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <Card className="border-border/50 shadow-lg overflow-hidden bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                <Activity className="h-4 w-4 mr-2 text-purple-600" />
+                متوسط سعر الشراء
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                {formatCurrency(analyticsMetrics.averagePurchasePrice)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">لكل جرام</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 shadow-lg overflow-hidden bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950 dark:to-indigo-900 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                <TrendingUp className="h-4 w-4 mr-2 text-indigo-600" />
+                نمو السعر
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${analyticsMetrics.priceAppreciation >= 0 
+                ? 'text-green-700 dark:text-green-300' 
+                : 'text-red-700 dark:text-red-300'}`}>
+                {analyticsMetrics.priceAppreciation >= 0 ? '+' : ''}{analyticsMetrics.priceAppreciation.toFixed(2)}%
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">منذ بداية الاستثمار</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 shadow-lg overflow-hidden bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-950 dark:to-teal-900 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                <BarChart3 className="h-4 w-4 mr-2 text-teal-600" />
+                أفضل استثمار
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-teal-700 dark:text-teal-300">
+                +{analyticsMetrics.bestPerformingPurchase?.profitPercent?.toFixed(1) || 0}%
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {analyticsMetrics.bestPerformingPurchase?.date || 'لا يوجد'}
               </p>
             </CardContent>
           </Card>
         </div>
 
         {/* Purchase Details Table */}
-        <Card className="border-border/50 shadow-lg mb-6 sm:mb-8 overflow-hidden">
-          <CardHeader className="bg-muted/30">
-            <CardTitle className="text-xl font-bold">تفاصيل جميع مشترياتك</CardTitle>
-            <CardDescription>عرض تفاصيل كل عملية شراء مع إمكانية التعديل أو الحذف</CardDescription>
-            <div className="mt-4 flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-muted-foreground">من</label>
+        <Card className="border-border/50 shadow-lg overflow-hidden mb-8 bg-gradient-to-br from-card to-muted/10">
+          <CardHeader className="bg-gradient-to-r from-muted/40 to-muted/20 backdrop-blur-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="text-xl font-bold flex items-center">
+                  <BarChart3 className="h-5 w-5 mr-2 text-primary" />
+                  تفاصيل المشتريات
+                </CardTitle>
+                <CardDescription>جميع عمليات الشراء مع التحليل المفصل</CardDescription>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="date"
                   value={filterStart}
                   onChange={(e) => setFilterStart(e.target.value)}
-                  className="p-2 border rounded"
+                  className="px-3 py-2 text-sm border rounded-lg bg-background/80 backdrop-blur-sm focus:ring-2 focus:ring-primary/20 transition-all"
+                  placeholder="من تاريخ"
                 />
-                <label className="text-sm text-muted-foreground">إلى</label>
                 <input
                   type="date"
                   value={filterEnd}
                   onChange={(e) => setFilterEnd(e.target.value)}
-                  className="p-2 border rounded"
+                  className="px-3 py-2 text-sm border rounded-lg bg-background/80 backdrop-blur-sm focus:ring-2 focus:ring-primary/20 transition-all"
+                  placeholder="إلى تاريخ"
                 />
-                {(filterStart || filterEnd) && (
-                  <Button
-                    variant="ghost"
-                    className="ml-2"
-                    onClick={() => {
-                      setFilterStart("")
-                      setFilterEnd("")
-                    }}
-                  >
-                    مسح الفلاتر
-                  </Button>
-                )}
-              </div>
-              <div>
-                <Button variant="outline" onClick={exportCsv} disabled={displayPurchases.length === 0}>
+                <Button onClick={exportCsv} variant="outline" size="sm" className="hover:bg-primary/10 transition-colors">
                   تصدير CSV
                 </Button>
               </div>
@@ -593,110 +679,72 @@ export default function Analysis() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead className="bg-muted/50">
-                  <tr className="border-b-2 border-border">
-                    <th className="text-right py-4 px-6 font-bold">التاريخ</th>
-                    <th className="text-right py-4 px-6 font-bold">العيار</th>
-                    <th className="text-right py-4 px-6 font-bold">الوزن (جرام)</th>
-                    <th className="text-right py-4 px-6 font-bold">السعر/جرام</th>
-                    <th className="text-right py-4 px-6 font-bold">المصنعية</th>
-                    <th className="text-right py-4 px-6 font-bold">مصروفات أخرى</th>
-                    <th className="text-right py-4 px-6 font-bold">التكلفة الإجمالية</th>
-                    <th className="text-center py-4 px-6 font-bold w-[200px]">الإجراءات</th>
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-muted/60 to-muted/40">
+                  <tr className="border-b border-border/50">
+                    <th className="text-right p-4 font-semibold text-foreground">التاريخ</th>
+                    <th className="text-right p-4 font-semibold text-foreground">العيار</th>
+                    <th className="text-right p-4 font-semibold text-foreground">الوزن</th>
+                    <th className="text-right p-4 font-semibold text-foreground">السعر/جرام</th>
+                    <th className="text-right p-4 font-semibold text-foreground">المصنعية</th>
+                    <th className="text-right p-4 font-semibold text-foreground">الإجمالي</th>
+                    <th className="text-right p-4 font-semibold text-foreground">الربح/الخسارة</th>
+                    <th className="text-right p-4 font-semibold text-foreground">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {displayPurchases.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="text-center py-12">
-                        <div className="text-muted-foreground mb-4">
-                          {purchases.length === 0 ? "لا توجد مشتريات مسجلة بعد" : "لا توجد مشتريات في الفترة المحددة"}
-                        </div>
-                        <div className="flex items-center justify-center gap-2">
-                          <Link href="/add-purchase">
-                            <Button className="bg-primary hover:bg-primary/90">
-                              <Plus className="w-4 h-4 mr-2" />
-                              إضافة شراء
-                            </Button>
-                          </Link>
-                          {(filterStart || filterEnd) && (
+                  {displayPurchases.map((purchase, index) => {
+                    const analysis = purchaseAnalysisData.find(p => p.date === purchase.date) || {
+                      profit: 0,
+                      profitPercent: 0
+                    }
+                    return (
+                      <tr key={purchase.id} className="border-b border-border/30 hover:bg-gradient-to-r hover:from-muted/20 hover:to-transparent transition-all duration-200">
+                        <td className="p-4 font-medium">{purchase.date}</td>
+                        <td className="p-4">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                            {purchase.karat || 21}
+                          </span>
+                        </td>
+                        <td className="p-4">{purchase.weight.toFixed(2)} جم</td>
+                        <td className="p-4 font-medium">{formatPrice(purchase.pricePerGram / exchangeRate)}</td>
+                        <td className="p-4">{formatPrice((purchase.manufacturing || 0) / exchangeRate)}</td>
+                        <td className="p-4 font-bold text-lg">{formatCurrency(purchase.totalCost / exchangeRate)}</td>
+                        <td className={`p-4 font-bold ${analysis.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          <div className="flex flex-col">
+                            <span className="text-lg">
+                              {analysis.profit >= 0 ? '+' : ''}{formatCurrency(analysis.profit)}
+                            </span>
+                            <span className={`text-xs px-2 py-1 rounded-full ${analysis.profit >= 0 
+                              ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
+                              : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}`}>
+                              ({analysis.profit >= 0 ? '+' : ''}{analysis.profitPercent.toFixed(1)}%)
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex gap-2">
                             <Button
-                              variant="outline"
-                              onClick={() => {
-                                setFilterStart("")
-                                setFilterEnd("")
-                              }}
-                            >
-                              مسح الفلاتر
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    displayPurchases.map((purchase) => (
-                      <tr key={purchase.id} className="border-b border-border hover:bg-muted/20">
-                        <td className="py-4 px-6">{purchase.date}</td>
-                        <td className="py-4 px-6">{purchase.karat || 24}</td>
-                        <td className="py-4 px-6">{purchase.weight.toFixed(2)}</td>
-                        <td className="py-4 px-6">
-                          {currency === "USD" 
-                            ? `$${(purchase.pricePerGram / exchangeRate).toFixed(2)}` 
-                            : `${purchase.pricePerGram.toFixed(2)} ج.م`}
-                        </td>
-                        <td className="py-4 px-6 text-foreground text-accent font-medium">
-                          {currency === "USD" 
-                            ? `$${((purchase.manufacturing || 0) / exchangeRate).toFixed(2)}` 
-                            : `${(purchase.manufacturing || 0).toFixed(2)} ج.م`}
-                        </td>
-                        <td className="py-4 px-6 text-foreground font-medium">
-                          {currency === "USD" 
-                            ? `$${((purchase.otherExpenses || 0) / exchangeRate).toFixed(2)}` 
-                            : `${(purchase.otherExpenses || 0).toFixed(2)} ج.م`}
-                        </td>
-                        <td className="py-4 px-6 font-medium">
-                          {currency === "USD" 
-                            ? `$${(purchase.totalCost / exchangeRate).toFixed(2)}` 
-                            : `${purchase.totalCost.toFixed(2)} ج.م`}
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="flex gap-3 justify-center">
-                            <Button
-                              variant="outline"
-                              size="default"
-                              className="bg-primary/10 hover:bg-primary/20 border-primary/20 text-primary font-bold min-w-[80px]"
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleEditPurchase(purchase)}
+                              className="h-8 w-8 p-0 hover:bg-blue-100 hover:text-blue-600 transition-colors"
                             >
-                              تعديل
+                              <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
-                              variant="destructive"
-                              size="default"
-                              className="font-bold min-w-[80px]"
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleDeletePurchase(purchase.id)}
+                              className="h-8 w-8 p-0 text-destructive hover:bg-red-100 hover:text-red-600 transition-colors"
                             >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              حذف
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </td>
                       </tr>
-                    ))
-                  )}
-                  {displayPurchases.length > 0 && (
-                    <tr className="border-t-2 border-border bg-primary/10 font-bold">
-                      <td colSpan={6} className="py-3 px-4 text-right text-primary">
-                        إجمالي التكلفة الإجمالية:
-                      </td>
-                      <td className="py-3 px-4 text-primary text-lg">
-                        {currency === "USD" 
-                          ? `$${(displayTotalInvestment / exchangeRate).toFixed(2)}` 
-                          : `${displayTotalInvestment.toFixed(2)} ج.م`}
-                      </td>
-                      <td className="py-3 px-4"></td>
-                    </tr>
-                  )}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -720,26 +768,31 @@ export default function Analysis() {
               {/* Breakdown Tab */}
               <TabsContent value="breakdown" className="bg-card rounded-lg p-4 border border-border/30">
                 {purchasesByDate.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={450}>
                     <BarChart data={purchasesByDate}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis dataKey="date" stroke="var(--color-muted-foreground)" />
-                      <YAxis stroke="var(--color-muted-foreground)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.3} />
+                      <XAxis dataKey="date" stroke="var(--color-muted-foreground)" fontSize={12} />
+                      <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: "var(--color-card)",
                           border: "1px solid var(--color-border)",
-                          borderRadius: "8px",
+                          borderRadius: "12px",
+                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
                         }}
                       />
                       <Legend />
-                      <Bar dataKey="weight" fill="var(--color-chart-1)" name="الوزن (جرام)" />
-                      <Bar dataKey="cost" fill="var(--color-chart-2)" name="التكلفة (ج.م)" />
+                      <Bar dataKey="weight" fill="#3b82f6" name="الوزن (جرام)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="cost" fill="#10b981" name="التكلفة (ج.م)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="manufacturing" fill="#f59e0b" name="المصنعية (ج.م)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-96 flex items-center justify-center text-muted-foreground">
-                    لا توجد بيانات للعرض
+                    <div className="text-center">
+                      <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>لا توجد بيانات للعرض</p>
+                    </div>
                   </div>
                 )}
               </TabsContent>
@@ -747,7 +800,7 @@ export default function Analysis() {
               {/* Profit/Loss Tab */}
               <TabsContent value="profitLoss" className="bg-card rounded-lg p-4 border border-border/30">
                 {totalInvestment > 0 ? (
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={450}>
                     <PieChart>
                       <Pie
                         data={profitLossData}
@@ -755,9 +808,11 @@ export default function Analysis() {
                         cy="50%"
                         labelLine={false}
                         label={({ name, value }) => `${name}: ${typeof value === 'number' ? value.toFixed(2) : value}`}
-                        outerRadius={120}
+                        outerRadius={140}
                         fill="#8884d8"
                         dataKey="value"
+                        stroke="#fff"
+                        strokeWidth={2}
                       >
                         {profitLossData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -767,115 +822,122 @@ export default function Analysis() {
                         contentStyle={{
                           backgroundColor: "var(--color-card)",
                           border: "1px solid var(--color-border)",
-                          borderRadius: "8px",
+                          borderRadius: "12px",
+                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
                         }}
-                        formatter={(value) => `${typeof value === 'number' ? value.toFixed(2) : value}`}
+                        formatter={(value) => formatCurrency(typeof value === 'number' ? value : 0)}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-96 flex items-center justify-center text-muted-foreground">
-                    لا توجد بيانات للعرض
+                    <div className="text-center">
+                      <PieChartIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>لا توجد بيانات للعرض</p>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Performance Tab */}
+              <TabsContent value="performance" className="bg-card rounded-lg p-4 border border-border/30">
+                {purchaseAnalysisData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={450}>
+                    <AreaChart data={purchaseAnalysisData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.3} />
+                      <XAxis dataKey="date" stroke="var(--color-muted-foreground)" fontSize={12} />
+                      <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "var(--color-card)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: "12px",
+                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                        }}
+                        formatter={(value: any, name: string) => {
+                          if (name === "نسبة الربح") return [`${typeof value === 'number' ? value.toFixed(2) : value}%`, name]
+                          return [formatCurrency(typeof value === 'number' ? value : 0), name]
+                        }}
+                      />
+                      <Legend />
+                      <Area
+                        type="monotone"
+                        dataKey="profitPercent"
+                        stroke="#10b981"
+                        fill="url(#profitGradient)"
+                        strokeWidth={3}
+                        name="نسبة الربح"
+                      />
+                      <defs>
+                        <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
+                        </linearGradient>
+                      </defs>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-96 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>لا توجد بيانات للعرض</p>
+                    </div>
                   </div>
                 )}
               </TabsContent>
 
               {/* Trend Tab */}
               <TabsContent value="trend" className="bg-card rounded-lg p-4 border border-border/30">
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <span className="text-sm text-muted-foreground">الفترة:</span>
-                    <Button variant={timeframe === "day" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("day")}>يوم</Button>
-                    <Button variant={timeframe === "week" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("week")}>أسبوع</Button>
-                    <Button variant={timeframe === "month" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("month")}>شهر</Button>
-                    <Button variant={timeframe === "3mo" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("3mo")}>3 شهور</Button>
-                    <Button variant={timeframe === "year" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("year")}>سنة</Button>
+                {purchaseAnalysisData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={450}>
+                    <LineChart data={purchaseAnalysisData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.3} />
+                      <XAxis dataKey="date" stroke="var(--color-muted-foreground)" fontSize={12} />
+                      <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "var(--color-card)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: "12px",
+                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                        }}
+                        formatter={(value: any, name: string) => {
+                          if (name === "سعر الذهب الحالي") return [`$${typeof value === 'number' ? value.toFixed(2) : value}`, name]
+                          if (name === "سعر الشراء") return [`$${typeof value === 'number' ? value.toFixed(2) : value}`, name]
+                          return [formatCurrency(typeof value === 'number' ? value : 0), name]
+                        }}
+                      />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="currentGoldPriceUSD"
+                        stroke="#3b82f6"
+                        strokeWidth={3}
+                        dot={{ fill: "#3b82f6", strokeWidth: 2, r: 4 }}
+                        name="سعر الذهب الحالي"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="purchasePriceUSD"
+                        stroke="#f59e0b"
+                        strokeWidth={3}
+                        dot={{ fill: "#f59e0b", strokeWidth: 2, r: 4 }}
+                        name="سعر الشراء"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-96 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>لا توجد بيانات للعرض</p>
+                    </div>
                   </div>
-                  {goldError && (
-                    <div className="text-red-600 text-sm mb-3">{goldError}</div>
-                  )}
-                  {loadingGold ? (
-                    <div className="h-96 flex items-center justify-center text-muted-foreground">جاري تحميل بيانات المؤشر...</div>
-                  ) : goldHistory.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={400}>
-                      {(() => {
-                        // تطبيع البيانات حسب الفترة الزمنية وإرجاع مخطط فئوي بسيط
-                        const chartData = (() => {
-                          if (timeframe === "day") {
-                            return goldHistory.map((d) => ({
-                              label: d.dateTime ? new Date(d.dateTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : d.date,
-                              price: currency === "USD" ? Number(d.priceUSD) : Number(d.priceUSD) * exchangeRate,
-                            }))
-                          }
-                          if (timeframe === "week") {
-                            const byDate: Record<string, { sum: number; count: number }> = {}
-                            for (const d of goldHistory) {
-                              const key = d.date
-                              if (!byDate[key]) byDate[key] = { sum: 0, count: 0 }
-                              byDate[key].sum += d.priceUSD
-                              byDate[key].count += 1
-                            }
-                            const entries = Object.entries(byDate)
-                              .sort((a, b) => a[0].localeCompare(b[0]))
-                              .map(([date, agg]) => ({
-                                label: date,
-                                price: currency === "USD" ? Number(agg.sum / agg.count) : Number(agg.sum / agg.count) * exchangeRate,
-                              }))
-                            return entries
-                          }
-                          if (timeframe === "month" || timeframe === "3mo") {
-                            return goldHistory
-                              .sort((a, b) => a.date.localeCompare(b.date))
-                              .map((d) => ({
-                                label: d.date,
-                                price: currency === "USD" ? Number(d.priceUSD) : Number(d.priceUSD) * exchangeRate,
-                              }))
-                          }
-                          const byMonth: Record<string, { sum: number; count: number }> = {}
-                          for (const d of goldHistory) {
-                            const monthKey = d.date.slice(0, 7)
-                            if (!byMonth[monthKey]) byMonth[monthKey] = { sum: 0, count: 0 }
-                            byMonth[monthKey].sum += d.priceUSD
-                            byMonth[monthKey].count += 1
-                          }
-                          return Object.entries(byMonth)
-                            .sort((a, b) => a[0].localeCompare(b[0]))
-                            .map(([m, agg]) => ({
-                              label: m,
-                              price: currency === "USD" ? Number(agg.sum / agg.count) : Number(agg.sum / agg.count) * exchangeRate,
-                            }))
-                        })()
-
-                        return (
-                          <LineChart data={chartData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                            <XAxis dataKey="label" stroke="var(--color-muted-foreground)" />
-                            <YAxis stroke="var(--color-muted-foreground)" />
-                            <Tooltip
-                              contentStyle={{
-                                backgroundColor: "var(--color-card)",
-                                border: "1px solid var(--color-border)",
-                                borderRadius: "8px",
-                              }}
-                              formatter={(value: any) => {
-                                const v = typeof value === 'number' ? value.toFixed(2) : value
-                                return currency === "USD" ? `$${v}` : `${v} ج.م`
-                              }}
-                            />
-                            <Legend />
-                            <Line type="monotone" dataKey="price" stroke="var(--color-primary)" strokeWidth={2} dot={{ r: 3 }} name={currency === "USD" ? "سعر الذهب (USD)" : "سعر الذهب (EGP)"} />
-                          </LineChart>
-                        )
-                      })()}
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="ه-96 flex items-center justify-center text-muted-foreground">لا توجد بيانات للعرض</div>
-                  )}
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
-
-        {/* تم إزالة جدول تفاصيل المشتريات بناءً على طلب المستخدم */}
 
         {/* مربع حوار تعديل الشراء */}
       {editingPurchase && (
