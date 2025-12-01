@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { supabase } from "@/lib/supabaseClient"
 import { useRouter } from "next/navigation"
+import { useCurrency } from "@/contexts/CurrencyContext"
 
 interface GoldPrice {
   price: number
@@ -40,14 +41,14 @@ interface Purchase {
 
 export default function Dashboard() {
   const router = useRouter()
+  const { currency, setCurrency, exchangeRate, setExchangeRate, formatCurrency, formatPrice } = useCurrency()
+
   const [sessionUserId, setSessionUserId] = useState<string | null>(null)
   const [goldPrice, setGoldPrice] = useState<GoldPrice | null>(null)
   const [priceHistory, setPriceHistory] = useState<any[]>([])
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [loading, setLoading] = useState(true)
   const [priceChange, setPriceChange] = useState(0)
-  const [exchangeRate, setExchangeRate] = useState(30)
-  const [currency, setCurrency] = useState<"USD" | "EGP">("USD")
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null)
   const [editFormData, setEditFormData] = useState<Partial<Purchase>>({})
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -57,7 +58,7 @@ export default function Dashboard() {
   const [filterStart, setFilterStart] = useState<string>("")
   const [filterEnd, setFilterEnd] = useState<string>("")
   const [timeframe, setTimeframe] = useState<"1D" | "1W" | "1M" | "3M" | "1Y">("1D")
-  
+
   // إضافة حالات جديدة لبيانات التاريخ من API
   const [goldHistory, setGoldHistory] = useState<any[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
@@ -587,20 +588,6 @@ export default function Dashboard() {
   const totalInvestmentInUSD = totalInvestment / exchangeRate
   const profitLoss = currentValue - totalInvestmentInUSD
   const profitLossPercent = totalInvestmentInUSD > 0 ? (profitLoss / totalInvestmentInUSD) * 100 : 0
-
-  const formatCurrency = (value: number) => {
-    if (currency === "EGP") {
-      return `${(value * exchangeRate).toFixed(2)} ج.م`
-    }
-    return `$${value.toFixed(2)}`
-  }
-
-  const formatPrice = (value: number) => {
-    if (currency === "EGP") {
-      return (value * exchangeRate).toFixed(2)
-    }
-    return value.toFixed(2)
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">

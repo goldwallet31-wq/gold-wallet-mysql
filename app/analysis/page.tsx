@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { supabase } from "@/lib/supabaseClient"
+import { useCurrency } from "@/contexts/CurrencyContext"
 
 interface Purchase {
   id: string
@@ -55,16 +56,16 @@ interface GoldPrice {
 }
 
 export default function Analysis() {
+  const { currency, setCurrency, exchangeRate, setExchangeRate, formatCurrency, formatPrice } = useCurrency()
+
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [goldPrice, setGoldPrice] = useState<GoldPrice | null>(null)
   const [loading, setLoading] = useState(true)
-  const [exchangeRate, setExchangeRate] = useState(30)
-  const [currency, setCurrency] = useState<"USD" | "EGP">("USD")
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null)
   const [editFormData, setEditFormData] = useState<Partial<Purchase>>({})
   const router = useRouter()
   const [sessionUserId, setSessionUserId] = useState<string | null>(null)
-  
+
   // حالة فلاتر التاريخ للعرض
   const [filterStart, setFilterStart] = useState<string>("")
   const [filterEnd, setFilterEnd] = useState<string>("")
@@ -333,21 +334,6 @@ export default function Analysis() {
       fill: profitLoss >= 0 ? "var(--color-chart-2)" : "var(--color-destructive)",
     },
   ]
-
-  // إضافة دوال تنسيق العملة
-  const formatCurrency = (value: number) => {
-    if (currency === "EGP") {
-      return `${(value * exchangeRate).toFixed(2)} ج.م`
-    }
-    return `$${value.toFixed(2)}`
-  }
-
-  const formatPrice = (value: number) => {
-    if (currency === "EGP") {
-      return (value * exchangeRate).toFixed(2)
-    }
-    return value.toFixed(2)
-  }
 
   // تحليلات متقدمة وبيانات الأداء للرسوم البيانية
   const currentGoldPricePerGramUSD = (goldPrice?.price || 0) / 31.1035
