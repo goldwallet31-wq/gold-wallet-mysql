@@ -172,11 +172,31 @@ export default function Dashboard() {
           priceUSD: item.priceUSD,
         }
       })
-      
+
       mappedData.sort((a: any, b: any) => a.ts - b.ts)
+
+      // إضافة السعر الحالي كنقطة أخيرة إذا كان متاحاً ومختلفاً عن آخر نقطة
+      if (goldPrice?.price && mappedData.length > 0) {
+        const now = Date.now()
+        const lastPoint = mappedData[mappedData.length - 1]
+        const timeDiff = now - lastPoint.ts
+
+        // إضافة نقطة جديدة إذا مر أكثر من دقيقة من آخر نقطة
+        if (timeDiff > 60000) {
+          mappedData.push({
+            ts: now,
+            time: tf === "1D"
+              ? new Date(now).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
+              : new Date(now).toLocaleDateString("ar-EG"),
+            price: goldPrice.price,
+            priceUSD: goldPrice.price,
+          })
+        }
+      }
+
       setGoldHistory(mappedData)
       setPriceHistory(mappedData)
-      
+
       if (mappedData.length > 1) {
         const first = mappedData[0].priceUSD
         const last = mappedData[mappedData.length - 1].priceUSD
@@ -421,14 +441,53 @@ export default function Dashboard() {
       const newPrice = data.price
 
       if (newPrice && !isNaN(newPrice)) {
+        const now = Date.now()
         setGoldPrice({
           price: newPrice,
           currency: "USD",
-          timestamp: Date.now(),
+          timestamp: now,
         })
         setPriceSource(data.source || "live")
         setLastUpdateTime(new Date())
         savePriceSample(newPrice)
+
+        // تحديث آخر نقطة في المخطط البياني ليطابق السعر الحالي
+        setPriceHistory(prev => {
+          if (prev.length === 0) return prev
+          const updated = [...prev]
+          const lastIndex = updated.length - 1
+          const lastPoint = updated[lastIndex]
+          const timeDiff = now - lastPoint.ts
+
+          // إذا كانت آخر نقطة قديمة (أكثر من دقيقة)، أضف نقطة جديدة
+          if (timeDiff > 60000) {
+            updated.push({
+              ts: now,
+              time: timeframe === "1D"
+                ? new Date(now).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
+                : new Date(now).toLocaleDateString("ar-EG"),
+              price: newPrice,
+              priceUSD: newPrice,
+            })
+          } else {
+            // تحديث آخر نقطة بالسعر الجديد
+            updated[lastIndex] = {
+              ...lastPoint,
+              price: newPrice,
+              priceUSD: newPrice,
+            }
+          }
+
+          // حساب التغير في السعر
+          if (updated.length > 1) {
+            const first = updated[0].priceUSD
+            const last = newPrice
+            const change = first > 0 ? ((last - first) / first) * 100 : 0
+            setPriceChange(change)
+          }
+
+          return updated
+        })
       }
       setLoading(false)
     } catch (error) {
