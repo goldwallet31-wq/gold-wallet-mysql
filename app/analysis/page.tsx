@@ -778,32 +778,69 @@ export default function Analysis() {
           </CardHeader>
           <CardContent className="p-4">
             <Tabs defaultValue="breakdown" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-6">
-                <TabsTrigger value="breakdown" className="text-base font-medium">التوزيع</TabsTrigger>
-                <TabsTrigger value="profitLoss" className="text-base font-medium">الربح والخسارة</TabsTrigger>
-                <TabsTrigger value="trend" className="text-base font-medium">الاتجاه</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 mb-6">
+                <TabsTrigger value="breakdown" className="text-sm sm:text-base font-medium">التوزيع</TabsTrigger>
+                <TabsTrigger value="profitLoss" className="text-sm sm:text-base font-medium">الربح/الخسارة</TabsTrigger>
+                <TabsTrigger value="performance" className="text-sm sm:text-base font-medium">الأداء</TabsTrigger>
+                <TabsTrigger value="trend" className="text-sm sm:text-base font-medium">الاتجاه</TabsTrigger>
               </TabsList>
 
               {/* Breakdown Tab */}
               <TabsContent value="breakdown" className="bg-card rounded-lg p-4 border border-border/30">
                 {purchasesByDate.length > 0 ? (
                   <ResponsiveContainer width="100%" height={450}>
-                    <BarChart data={purchasesByDate}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.3} />
-                      <XAxis dataKey="date" stroke="var(--color-muted-foreground)" fontSize={12} />
-                      <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
+                    <BarChart data={purchasesByDate} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        tickFormatter={(date) => new Date(date).toLocaleDateString("ar-EG", { month: 'short', day: 'numeric' })}
+                      />
+                      <YAxis
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        tickFormatter={(value) => {
+                          if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`
+                          if (value >= 1000) return `${(value / 1000).toFixed(0)}K`
+                          return value.toFixed(0)
+                        }}
+                        width={50}
+                      />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "var(--color-card)",
-                          border: "1px solid var(--color-border)",
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
                           borderRadius: "12px",
-                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                          boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                          padding: "12px 16px",
                         }}
+                        formatter={(value: any, name: string) => {
+                          const formattedValue = typeof value === 'number'
+                            ? value.toLocaleString('ar-EG', { maximumFractionDigits: 2 })
+                            : value
+                          return [formattedValue, name]
+                        }}
+                        labelFormatter={(date) => new Date(date).toLocaleDateString("ar-EG", {
+                          year: 'numeric', month: 'long', day: 'numeric'
+                        })}
+                        labelStyle={{ color: "hsl(var(--foreground))", fontWeight: "bold", marginBottom: "8px" }}
+                        cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
                       />
-                      <Legend />
-                      <Bar dataKey="weight" fill="#3b82f6" name="الوزن (جرام)" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="cost" fill="#10b981" name="التكلفة (ج.م)" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="manufacturing" fill="#f59e0b" name="المصنعية (ج.م)" radius={[4, 4, 0, 0]} />
+                      <Legend
+                        verticalAlign="top"
+                        height={40}
+                        formatter={(value) => <span style={{ color: "hsl(var(--foreground))", fontSize: "12px" }}>{value}</span>}
+                      />
+                      <Bar dataKey="weight" fill="#3b82f6" name="الوزن (جرام)" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="cost" fill="#10b981" name="التكلفة (ج.م)" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="manufacturing" fill="#f59e0b" name="المصنعية (ج.م)" radius={[6, 6, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -811,6 +848,7 @@ export default function Analysis() {
                     <div className="text-center">
                       <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                       <p>لا توجد بيانات للعرض</p>
+                      <p className="text-sm mt-2">قم بإضافة مشتريات لعرض التحليل</p>
                     </div>
                   </div>
                 )}
@@ -819,80 +857,137 @@ export default function Analysis() {
               {/* Profit/Loss Tab */}
               <TabsContent value="profitLoss" className="bg-card rounded-lg p-4 border border-border/30">
                 {totalInvestment > 0 ? (
-                  <ResponsiveContainer width="100%" height={450}>
-                    <PieChart>
-                      <Pie
-                        data={profitLossData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value }) => `${name}: ${typeof value === 'number' ? value.toFixed(2) : value}`}
-                        outerRadius={140}
-                        fill="#8884d8"
-                        dataKey="value"
-                        stroke="#fff"
-                        strokeWidth={2}
-                      >
-                        {profitLossData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "var(--color-card)",
-                          border: "1px solid var(--color-border)",
-                          borderRadius: "12px",
-                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-                        }}
-                        formatter={(value) => formatCurrency(typeof value === 'number' ? value : 0)}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
+                    <ResponsiveContainer width="100%" height={400}>
+                      <PieChart>
+                        <Pie
+                          data={profitLossData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                          outerRadius={130}
+                          innerRadius={60}
+                          fill="#8884d8"
+                          dataKey="value"
+                          stroke="hsl(var(--background))"
+                          strokeWidth={3}
+                          paddingAngle={2}
+                        >
+                          {profitLossData.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={index === 0 ? "#3b82f6" : (profitLoss >= 0 ? "#10b981" : "#ef4444")}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "12px",
+                            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                            padding: "12px 16px",
+                          }}
+                          formatter={(value: any) => [formatCurrency(typeof value === 'number' ? value : 0), ""]}
+                          labelStyle={{ color: "hsl(var(--foreground))", fontWeight: "bold" }}
+                        />
+                        <Legend
+                          verticalAlign="bottom"
+                          formatter={(value) => <span style={{ color: "hsl(var(--foreground))", fontSize: "12px" }}>{value}</span>}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-4 min-w-[200px]">
+                      <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                        <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">الاستثمار الأولي</p>
+                        <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(totalInvestmentInUSD)}</p>
+                      </div>
+                      <div className={`p-4 rounded-lg border ${profitLoss >= 0
+                        ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800'
+                        : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800'}`}>
+                        <p className={`text-sm mb-1 ${profitLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {profitLoss >= 0 ? 'الربح' : 'الخسارة'}
+                        </p>
+                        <p className={`text-2xl font-bold ${profitLoss >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                          {profitLoss >= 0 ? '+' : ''}{formatCurrency(profitLoss)}
+                        </p>
+                        <p className={`text-sm mt-1 ${profitLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          ({profitLoss >= 0 ? '+' : ''}{profitLossPercent.toFixed(2)}%)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="h-96 flex items-center justify-center text-muted-foreground">
                     <div className="text-center">
                       <PieChartIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
                       <p>لا توجد بيانات للعرض</p>
+                      <p className="text-sm mt-2">قم بإضافة مشتريات لعرض التحليل</p>
                     </div>
                   </div>
                 )}
               </TabsContent>
 
-              {/* Performance Tab */}
+              {/* Performance Tab - نسبة الأداء */}
               <TabsContent value="performance" className="bg-card rounded-lg p-4 border border-border/30">
                 {purchaseAnalysisData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={450}>
-                    <AreaChart data={purchaseAnalysisData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.3} />
-                      <XAxis dataKey="date" stroke="var(--color-muted-foreground)" fontSize={12} />
-                      <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
+                    <AreaChart data={purchaseAnalysisData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <defs>
+                        <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                      <XAxis
+                        dataKey="date"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        tickFormatter={(date) => new Date(date).toLocaleDateString("ar-EG", { month: 'short', day: 'numeric' })}
+                      />
+                      <YAxis
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        tickFormatter={(value) => `${value.toFixed(0)}%`}
+                        width={50}
+                      />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "var(--color-card)",
-                          border: "1px solid var(--color-border)",
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
                           borderRadius: "12px",
-                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                          boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                          padding: "12px 16px",
                         }}
-                        formatter={(value: any, name: string) => {
-                          if (name === "نسبة الربح") return [`${typeof value === 'number' ? value.toFixed(2) : value}%`, name]
-                          return [formatCurrency(typeof value === 'number' ? value : 0), name]
-                        }}
+                        formatter={(value: any) => [`${typeof value === 'number' ? value.toFixed(2) : value}%`, "نسبة الربح"]}
+                        labelFormatter={(date) => new Date(date).toLocaleDateString("ar-EG", {
+                          year: 'numeric', month: 'long', day: 'numeric'
+                        })}
+                        labelStyle={{ color: "hsl(var(--foreground))", fontWeight: "bold", marginBottom: "8px" }}
                       />
-                      <Legend />
+                      <Legend
+                        verticalAlign="top"
+                        height={40}
+                        formatter={(value) => <span style={{ color: "hsl(var(--foreground))", fontSize: "12px" }}>{value}</span>}
+                      />
                       <Area
                         type="monotone"
                         dataKey="profitPercent"
                         stroke="#10b981"
                         fill="url(#profitGradient)"
-                        strokeWidth={3}
-                        name="نسبة الربح"
+                        strokeWidth={2.5}
+                        name="نسبة الربح (%)"
+                        dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: "#10b981", strokeWidth: 2, fill: "hsl(var(--background))" }}
                       />
-                      <defs>
-                        <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
-                        </linearGradient>
-                      </defs>
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
@@ -900,48 +995,76 @@ export default function Analysis() {
                     <div className="text-center">
                       <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
                       <p>لا توجد بيانات للعرض</p>
+                      <p className="text-sm mt-2">قم بإضافة مشتريات لعرض التحليل</p>
                     </div>
                   </div>
                 )}
               </TabsContent>
 
-              {/* Trend Tab */}
+              {/* Trend Tab - مقارنة أسعار الشراء بسعر الذهب الحالي */}
               <TabsContent value="trend" className="bg-card rounded-lg p-4 border border-border/30">
                 {purchaseAnalysisData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={450}>
-                    <LineChart data={purchaseAnalysisData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.3} />
-                      <XAxis dataKey="date" stroke="var(--color-muted-foreground)" fontSize={12} />
-                      <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
+                    <LineChart data={purchaseAnalysisData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                      <XAxis
+                        dataKey="date"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        tickFormatter={(date) => new Date(date).toLocaleDateString("ar-EG", { month: 'short', day: 'numeric' })}
+                      />
+                      <YAxis
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        tickFormatter={(value) => `$${value.toFixed(0)}`}
+                        width={55}
+                        domain={['auto', 'auto']}
+                      />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "var(--color-card)",
-                          border: "1px solid var(--color-border)",
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
                           borderRadius: "12px",
-                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                          boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                          padding: "12px 16px",
                         }}
                         formatter={(value: any, name: string) => {
-                          if (name === "سعر الذهب الحالي") return [`$${typeof value === 'number' ? value.toFixed(2) : value}`, name]
-                          if (name === "سعر الشراء") return [`$${typeof value === 'number' ? value.toFixed(2) : value}`, name]
-                          return [formatCurrency(typeof value === 'number' ? value : 0), name]
+                          const formattedValue = `$${typeof value === 'number' ? value.toFixed(2) : value}`
+                          return [formattedValue, name]
                         }}
+                        labelFormatter={(date) => new Date(date).toLocaleDateString("ar-EG", {
+                          year: 'numeric', month: 'long', day: 'numeric'
+                        })}
+                        labelStyle={{ color: "hsl(var(--foreground))", fontWeight: "bold", marginBottom: "8px" }}
                       />
-                      <Legend />
+                      <Legend
+                        verticalAlign="top"
+                        height={40}
+                        formatter={(value) => <span style={{ color: "hsl(var(--foreground))", fontSize: "12px" }}>{value}</span>}
+                      />
                       <Line
                         type="monotone"
                         dataKey="currentGoldPriceUSD"
                         stroke="#3b82f6"
-                        strokeWidth={3}
-                        dot={{ fill: "#3b82f6", strokeWidth: 2, r: 4 }}
-                        name="سعر الذهب الحالي"
+                        strokeWidth={2.5}
+                        dot={{ fill: "#3b82f6", strokeWidth: 2, r: 5 }}
+                        activeDot={{ r: 7, stroke: "#3b82f6", strokeWidth: 2, fill: "hsl(var(--background))" }}
+                        name="سعر الذهب الحالي (للجرام)"
                       />
                       <Line
                         type="monotone"
                         dataKey="purchasePriceUSD"
                         stroke="#f59e0b"
-                        strokeWidth={3}
-                        dot={{ fill: "#f59e0b", strokeWidth: 2, r: 4 }}
-                        name="سعر الشراء"
+                        strokeWidth={2.5}
+                        dot={{ fill: "#f59e0b", strokeWidth: 2, r: 5 }}
+                        activeDot={{ r: 7, stroke: "#f59e0b", strokeWidth: 2, fill: "hsl(var(--background))" }}
+                        name="سعر الشراء (للجرام)"
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -950,6 +1073,7 @@ export default function Analysis() {
                     <div className="text-center">
                       <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
                       <p>لا توجد بيانات للعرض</p>
+                      <p className="text-sm mt-2">قم بإضافة مشتريات لعرض التحليل</p>
                     </div>
                   </div>
                 )}

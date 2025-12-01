@@ -805,51 +805,115 @@ export default function Dashboard() {
                 {priceHistory.length > 1 ? (
                   <ResponsiveContainer width="100%" height={400}>
                     {(() => {
-                      const prices = priceHistory.map((d: any) => d.price)
+                      const prices = priceHistory.map((d: any) => d.price).filter((p: number) => p > 0)
                       const minPrice = prices.length ? Math.min(...prices) : 0
                       const maxPrice = prices.length ? Math.max(...prices) : 0
                       const delta = maxPrice - minPrice
-                      const padding = delta > 0 ? delta * 0.1 : 1
-                      const yAxisDomain = delta === 0
-                        ? [Math.max(0, minPrice - 1), maxPrice + 1]
-                        : [Math.max(0, Number((minPrice - padding).toFixed(2))), Number((maxPrice + padding).toFixed(2))]
+                      const padding = delta > 0 ? delta * 0.15 : maxPrice * 0.05
+                      const yAxisDomain: [number, number] = [
+                        Math.max(0, Math.floor((minPrice - padding) / 10) * 10),
+                        Math.ceil((maxPrice + padding) / 10) * 10
+                      ]
+
+                      // تحديد لون الخط بناءً على اتجاه السعر
+                      const isUptrend = prices.length >= 2 && prices[prices.length - 1] >= prices[0]
+                      const strokeColor = isUptrend ? "#10b981" : "#ef4444"
+                      const gradientId = "priceGradient"
+
                       return (
-                        <AreaChart data={priceHistory}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                        <AreaChart data={priceHistory} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+                          <defs>
+                            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={strokeColor} stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor={strokeColor} stopOpacity={0.05}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
                           <XAxis
                             type="number"
                             dataKey="ts"
                             domain={["dataMin", "dataMax"]}
-                            stroke="var(--color-muted-foreground)"
-                            tickFormatter={(ts: number) => timeframe === "1D"
-                              ? new Date(ts).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
-                              : new Date(ts).toLocaleDateString("ar-EG")}
+                            stroke="hsl(var(--muted-foreground))"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={{ stroke: "hsl(var(--border))" }}
+                            tickFormatter={(ts: number) => {
+                              if (timeframe === "1D") {
+                                return new Date(ts).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
+                              }
+                              return new Date(ts).toLocaleDateString("ar-EG", { month: 'short', day: 'numeric' })
+                            }}
+                            tick={{ fill: "hsl(var(--muted-foreground))" }}
                           />
                           <YAxis
-                            stroke="var(--color-muted-foreground)"
-                            domain={yAxisDomain as any}
-                            tickFormatter={(value) => `${currency === "EGP" ? "" : "$"}${(currency === "EGP" ? (value * exchangeRate).toFixed(0) : Number(value).toFixed(0))}`}
+                            stroke="hsl(var(--muted-foreground))"
+                            domain={yAxisDomain}
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={{ stroke: "hsl(var(--border))" }}
+                            tickFormatter={(value) => {
+                              const displayValue = currency === "EGP" ? value * exchangeRate : value
+                              if (displayValue >= 1000) {
+                                return `${currency === "EGP" ? "" : "$"}${(displayValue / 1000).toFixed(1)}K`
+                              }
+                              return `${currency === "EGP" ? "" : "$"}${displayValue.toFixed(0)}`
+                            }}
+                            tick={{ fill: "hsl(var(--muted-foreground))" }}
+                            width={60}
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: "var(--color-card)",
-                              border: "1px solid var(--color-border)",
-                              borderRadius: "8px",
+                              backgroundColor: "hsl(var(--card))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: "12px",
+                              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                              padding: "12px 16px",
                             }}
-                            formatter={(value) =>
-                              `${currency === "EGP" ? "ج.م " : "$"}${(Number(value) * (currency === "EGP" ? exchangeRate : 1)).toFixed(2)}`
-                            }
-                            labelFormatter={(ts: number) => timeframe === "1D"
-                              ? new Date(ts).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
-                              : new Date(ts).toLocaleDateString("ar-EG")}
+                            formatter={(value: any) => {
+                              const displayValue = currency === "EGP"
+                                ? (Number(value) * exchangeRate).toLocaleString('ar-EG', { maximumFractionDigits: 2 })
+                                : Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })
+                              return [`${currency === "EGP" ? "ج.م " : "$"}${displayValue}`, "السعر"]
+                            }}
+                            labelFormatter={(ts: number) => {
+                              const date = new Date(ts)
+                              if (timeframe === "1D") {
+                                return date.toLocaleTimeString("ar-EG", {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  weekday: 'long'
+                                })
+                              }
+                              return date.toLocaleDateString("ar-EG", {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                weekday: 'long'
+                              })
+                            }}
+                            labelStyle={{ color: "hsl(var(--foreground))", fontWeight: "bold", marginBottom: "4px" }}
                           />
-                          <Area type="linear" dataKey="price" stroke="var(--color-primary)" fillOpacity={1} fill="url(#colorPrice)" />
+                          <Area
+                            type="monotone"
+                            dataKey="price"
+                            stroke={strokeColor}
+                            strokeWidth={2.5}
+                            fillOpacity={1}
+                            fill={`url(#${gradientId})`}
+                            dot={false}
+                            activeDot={{ r: 6, stroke: strokeColor, strokeWidth: 2, fill: "hsl(var(--background))" }}
+                          />
                         </AreaChart>
                       )
                     })()}
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-96 flex items-center justify-center text-muted-foreground">جاري تحميل البيانات...</div>
+                  <div className="h-96 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p>جاري تحميل البيانات...</p>
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
