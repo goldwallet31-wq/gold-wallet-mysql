@@ -62,6 +62,8 @@ export default function Dashboard() {
   const [goldHistory, setGoldHistory] = useState<any[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  const [priceSource, setPriceSource] = useState<string>("loading")
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null)
 
   // حساب أسعار الذهب للعيارات المختلفة
   const calculateKaratPrices = (ouncePrice: number) => {
@@ -364,11 +366,18 @@ export default function Dashboard() {
     fetchGoldPrice()
     fetchExchangeRate()
     fetchGoldHistory("1D")
+    // تحديث السعر كل 10 ثواني للحصول على بيانات لحظية
     const interval = setInterval(() => {
       fetchGoldPrice()
+    }, 10000)
+    // تحديث سعر الصرف كل دقيقة
+    const exchangeInterval = setInterval(() => {
       fetchExchangeRate()
-    }, 30000)
-    return () => clearInterval(interval)
+    }, 60000)
+    return () => {
+      clearInterval(interval)
+      clearInterval(exchangeInterval)
+    }
   }, [])
 
   // التأثير الثاني: الحصول على جلسة المستخدم وتحميل مشترياته من Supabase
@@ -399,33 +408,32 @@ export default function Dashboard() {
 
   const fetchGoldPrice = async () => {
     try {
-      const response = await fetch("/api/gold-price")
+      const response = await fetch("/api/gold-price", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" }
+      })
 
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`)
       }
 
       const data = await response.json()
-      const newPrice = data.price || 2050
+      const newPrice = data.price
 
-      setGoldPrice({
-        price: newPrice,
-        currency: "USD",
-        timestamp: Date.now(),
-      })
-
-      savePriceSample(newPrice)
-      // لا تقم بتحديث المخطط المحسوب من API تلقائيًا هنا حتى لا يصبح خطًا مستقيمًا
+      if (newPrice && !isNaN(newPrice)) {
+        setGoldPrice({
+          price: newPrice,
+          currency: "USD",
+          timestamp: Date.now(),
+        })
+        setPriceSource(data.source || "live")
+        setLastUpdateTime(new Date())
+        savePriceSample(newPrice)
+      }
       setLoading(false)
     } catch (error) {
       console.error("[v0] Error fetching gold price:", error)
-      setGoldPrice({
-        price: 2050,
-        currency: "USD",
-        timestamp: Date.now(),
-      })
-      savePriceSample(2050)
-      // تجنّب الكتابة فوق بيانات المخطط التاريخية من API
+      setPriceSource("offline")
       setLoading(false)
     }
   }
@@ -610,9 +618,19 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Current Price Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <Card className="border-border/50 shadow-lg">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">سعر الذهب الحالي</CardTitle>
+          <Card className="border-border/50 shadow-lg overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">سعر الذهب الحالي</CardTitle>
+                <div className="flex items-center gap-2">
+                  {priceSource !== "offline" && (
+                    <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                      مباشر
+                    </span>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex items-end justify-between">
@@ -625,7 +643,7 @@ export default function Dashboard() {
                         {currency === "EGP" ? "ج.م " : "$"}
                         {formatPrice(goldPrice?.price || 0)}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">لكل أونصة</p>
+                      <p className="text-xs text-muted-foreground mt-1">لكل أونصة (XAU/USD)</p>
                     </>
                   )}
                 </div>
@@ -645,6 +663,14 @@ export default function Dashboard() {
                   </span>
                 </div>
               </div>
+              {lastUpdateTime && (
+                <p className="text-[10px] text-muted-foreground mt-2 border-t pt-2 border-border/30">
+                  آخر تحديث: {lastUpdateTime.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  {priceSource && priceSource !== "loading" && (
+                    <span className="mr-2">• {priceSource === "goldprice.org" ? "GoldPrice" : priceSource === "yahoo-finance" ? "Yahoo Finance" : priceSource}</span>
+                  )}
+                </p>
+              )}
             </CardContent>
           </Card>
 
