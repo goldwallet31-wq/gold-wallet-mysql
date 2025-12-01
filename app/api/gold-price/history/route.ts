@@ -10,18 +10,9 @@ function toISODateTime(ts: number) {
   return d.toISOString()
 }
 
-// Get real current date (not system date which might be wrong)
+// Get real current date
 function getRealToday(): string {
-  // Use current timestamp but adjust if system date is clearly wrong
-  const now = new Date()
-  const currentYear = now.getFullYear()
-  
-  // If system year is 2025 or later, assume it's wrong and use 2024
-  if (currentYear >= 2025) {
-    return "2024-10-26" // Use a reasonable current date in 2024
-  }
-  
-  return now.toISOString().slice(0, 10)
+  return new Date().toISOString().slice(0, 10)
 }
 
 async function fetchYahoo(symbol: string, range: string, interval: string) {
