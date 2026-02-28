@@ -1,7 +1,12 @@
-﻿import Link from "next/link"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Shield, Lock, Eye, Database, UserCheck, Mail, ArrowRight } from "lucide-react"
+
+export const metadata = {
+  title: "سياسة الخصوصية - محفظة الذهب",
+  description: "سياسة الخصوصية لتطبيق محفظة الذهب - Gold Wallet Privacy Policy",
+}
 
 export default function PrivacyPage() {
   const sections = [
