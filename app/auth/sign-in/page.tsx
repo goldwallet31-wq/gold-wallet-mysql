@@ -64,9 +64,14 @@ export default function SignIn() {
               <Link href="/auth/reset-password" className="text-primary">نسيت كلمة المرور؟</Link>
             </div>
             <div className="text-center mt-4 pt-4 border-t border-border/50">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 بمتابعة تسجيل الدخول، أنت توافق على{" "}
-                <Link href="/privacy" className="text-primary underline hover:text-primary/80" target="_blank" rel="noopener noreferrer">
+                <Link 
+                  href="/privacy" 
+                  className="text-primary font-medium underline hover:text-primary/80 transition-colors" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
                   سياسة الخصوصية
                 </Link>
               </p>
