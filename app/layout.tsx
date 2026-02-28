@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   title: "محفظة الذهب - Gold Wallet",
   description: "تطبيق محفظة الذهب لتتبع أسعار الذهب والمشتريات والأرباح والخسائر",
   generator: "v0.app",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
 }
 
 export default function RootLayout({
