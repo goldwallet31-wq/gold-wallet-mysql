@@ -77,6 +77,14 @@ export default function SignUp() {
             <div className="text-xs sm:text-sm mt-3">
               لديك حساب؟ <Link href="/auth/sign-in" className="text-primary">تسجيل الدخول</Link>
             </div>
+            <div className="text-center mt-4 pt-4 border-t border-border/50">
+              <p className="text-xs text-muted-foreground">
+                بمتابعة إنشاء الحساب، أنت توافق على{" "}
+                <Link href="/privacy" className="text-primary underline hover:text-primary/80">
+                  سياسة الخصوصية
+                </Link>
+              </p>
+            </div>
           </form>
         </CardContent>
       </Card>

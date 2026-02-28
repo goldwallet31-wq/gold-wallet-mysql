@@ -63,6 +63,14 @@ export default function SignIn() {
               <span>ليس لديك حساب؟ <Link href="/auth/sign-up" className="text-primary">إنشاء حساب</Link></span>
               <Link href="/auth/reset-password" className="text-primary">نسيت كلمة المرور؟</Link>
             </div>
+            <div className="text-center mt-4 pt-4 border-t border-border/50">
+              <p className="text-xs text-muted-foreground">
+                بمتابعة تسجيل الدخول، أنت توافق على{" "}
+                <Link href="/privacy" className="text-primary underline hover:text-primary/80">
+                  سياسة الخصوصية
+                </Link>
+              </p>
+            </div>
           </form>
         </CardContent>
       </Card>
