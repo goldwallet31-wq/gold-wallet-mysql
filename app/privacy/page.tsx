@@ -4,7 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Shield, Lock, Eye, Database, UserCheck, Mail, ArrowRight } from "lucide-react"
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: {}
+  searchParams: { [key: string]: string | string[] | undefined }
+}): Promise<Metadata> {
   return {
     title: "سياسة الخصوصية - محفظة الذهب",
     description: "سياسة الخصوصية لتطبيق محفظة الذهب - Gold Wallet Privacy Policy",
