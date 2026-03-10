@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
-import { TrendingUp, TrendingDown, Plus, BarChart3, Pencil, Trash2 } from "lucide-react"
+import { TrendingUp, TrendingDown, Plus, BarChart3, Pencil, Trash2, Calculator } from "lucide-react"
 import Link from "next/link"
 import {
   AlertDialog,
@@ -630,6 +630,13 @@ export default function Dashboard() {
               
               {/* Action Buttons */}
               <div className="flex flex-col gap-2 sm:flex-row">
+                <Link href="/zakat" className="w-full sm:w-auto">
+                  <Button variant="outline" className="gap-2 border-primary/20 text-primary w-full sm:w-auto">
+                    <Calculator className="w-4 h-4" />
+                    <span className="hidden sm:inline">زكاة الذهب</span>
+                    <span className="sm:hidden">زكاة</span>
+                  </Button>
+                </Link>
                 <Link href="/analysis" className="w-full sm:w-auto">
                   <Button variant="outline" className="gap-2 border-primary/20 text-primary w-full sm:w-auto">
                     <BarChart3 className="w-4 h-4" />

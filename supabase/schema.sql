@@ -37,6 +37,55 @@ create policy "Allow update own purchases" on public.purchases
 create policy "Allow delete own purchases" on public.purchases
   for delete using (auth.uid() = user_id);
 
+-- جدول سجلات زكاة الذهب
+create table if not exists public.gold_zakat_records (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  purchase_id uuid not null references public.purchases(id) on delete cascade,
+  zakat_due_date date not null,
+  zakat_amount numeric not null,
+  zakat_paid boolean default false,
+  zakat_paid_date date,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- فهرسة لتحسين الاستعلامات
+create index if not exists zakat_user_id_idx on public.gold_zakat_records(user_id);
+create index if not exists zakat_purchase_id_idx on public.gold_zakat_records(purchase_id);
+create index if not exists zakat_due_date_idx on public.gold_zakat_records(zakat_due_date);
+create index if not exists zakat_paid_idx on public.gold_zakat_records(zakat_paid);
+
+-- تفعيل سياسات RLS
+alter table public.gold_zakat_records enable row level security;
+
+-- يسمح للمستخدم بقراءة/إضافة/تعديل/حذف سجلاته فقط
+create policy "Allow read own zakat records" on public.gold_zakat_records
+  for select using (auth.uid() = user_id);
+
+create policy "Allow insert own zakat records" on public.gold_zakat_records
+  for insert with check (auth.uid() = user_id);
+
+create policy "Allow update own zakat records" on public.gold_zakat_records
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "Allow delete own zakat records" on public.gold_zakat_records
+  for delete using (auth.uid() = user_id);
+
+-- دالة لتحديث updated_at تلقائياً
+create or replace function update_updated_at_column()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger update_gold_zakat_records_updated_at
+  before update on public.gold_zakat_records
+  for each row
+  execute function update_updated_at_column();
+
 -- ملاحظات التنفيذ:
 -- 1) أنشئ مشروع Supabase من لوحة التحكم.
 -- 2) ضع القيم في ملف .env.local: NEXT_PUBLIC_SUPABASE_URL و NEXT_PUBLIC_SUPABASE_ANON_KEY.
